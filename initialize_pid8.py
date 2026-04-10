@@ -165,6 +165,26 @@ def init_phase6_calibration(model, dataloader):
                 layer.ln2.weight.data *= scale
             break # One batch is enough for calibration
 
+def init_phase7_morphing(model, alpha=0.3):
+    """Phase 7: Inter-layer Geometric Morphing (Smoothing).
+    Blends weights of adjacent layers to ensure mathematical continuity.
+    """
+    print(f"Phase 7: Applying Geometric Morphing (alpha={alpha})...")
+    with torch.no_grad():
+        for i in range(1, len(model.layers)):
+            # Blend MLP W1
+            curr_w1 = model.layers[i].mlp.W1.weight.data
+            prev_w1 = model.layers[i-1].mlp.W1.weight.data
+            # Need to handle different shapes if necessary (here they match except for phase jumps)
+            if curr_w1.shape == prev_w1.shape:
+                model.layers[i].mlp.W1.weight.data = (1 - alpha) * curr_w1 + alpha * prev_w1
+            
+            # Blend Attention W_q
+            curr_wq = model.layers[i].attn.W_q.weight.data
+            prev_wq = model.layers[i-1].attn.W_q.weight.data
+            if curr_wq.shape == prev_wq.shape:
+                model.layers[i].attn.W_q.weight.data = (1 - alpha) * curr_wq + alpha * prev_wq
+
 def initialize_pid8(model, dataloader):
     init_phase0_embedding(model, dataloader)
     init_phase1_dct(model)
@@ -172,8 +192,10 @@ def initialize_pid8(model, dataloader):
     init_phase3_svd(model, dataloader)
     init_phase4_qr(model)
     init_phase5_whitening(model, dataloader)
+    # New: Smoothing before final calibration
+    init_phase7_morphing(model, alpha=0.2)
     init_phase6_calibration(model, dataloader)
-    print("PID-8 (Fertile Soil Edition) Initialization Complete.")
+    print("PID-8.2 (Lissage Edition) Initialization Complete.")
 
 if __name__ == "__main__":
     from torch.utils.data import DataLoader, TensorDataset

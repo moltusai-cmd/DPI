@@ -58,17 +58,15 @@ def xavier_init(model):
             nn.init.zeros_(p)
 
 def get_scheduler(optimizer, total_steps):
-    warmup_steps = int(0.1 * total_steps)
-    plateau_steps = int(0.4 * total_steps)
-    cosine_steps = total_steps - warmup_steps - plateau_steps
+    # 0% Warm-up (Direct Plateau), 50% Plateau, 50% Cosine Decay
+    plateau_steps = int(0.5 * total_steps)
+    cosine_steps = total_steps - plateau_steps
     
     def lr_lambda(current_step):
-        if current_step < warmup_steps:
-            return float(current_step) / float(max(1, warmup_steps))
-        elif current_step < warmup_steps + plateau_steps:
+        if current_step < plateau_steps:
             return 1.0
         else:
-            progress = float(current_step - warmup_steps - plateau_steps) / float(max(1, cosine_steps))
+            progress = float(current_step - plateau_steps) / float(max(1, cosine_steps))
             return 0.1 + 0.9 * (0.5 * (1.0 + math.cos(math.pi * progress)))
 
     return torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
@@ -82,18 +80,22 @@ def train():
     train_file = "wiki.train.raw"
     vocab = build_vocab(train_file)
     
-    model = PID8Transformer(vocab_size=16384).to(device)
+    # Scale to 50M: d_model=512, d_mlp=2048, n_layers=12, n_heads=8
+    model = PID8Transformer(vocab_size=16384, d_model=512, n_heads=8, d_mlp=2048, n_layers=12).to(device)
+    
+    from model import count_parameters
+    print(f"Total Parameters: {count_parameters(model) / 1e6:.2f}M")
     
     # Xavier Initialization
     xavier_init(model)
     
-    # Same dataset and loader as PID-8.1 test
+    # Load data
     train_dataset = WikiDataset(train_file, vocab, seq_len=128, max_lines=100000)
     train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
     
     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4, weight_decay=0.01)
     
-    epochs = 4
+    epochs = 2
     steps_per_epoch = len(train_loader)
     total_steps = steps_per_epoch * epochs
     
@@ -101,8 +103,8 @@ def train():
     criterion = nn.CrossEntropyLoss()
     
     model.train()
-    print(f"\nStarting {epochs} Epochs Training (Xavier Init, {total_steps} total steps)...")
-    print(f"Schedule: 10% Warm-up, 40% Plateau (1e-4), 50% Cosine Decay (-> 1e-5)")
+    print(f"\nStarting {epochs} Epochs Training (Xavier Init, NO WARMUP, {total_steps} total steps)...")
+    print(f"Schedule: 50% Plateau (1e-4), 50% Cosine Decay (-> 1e-5)")
     
     global_step = 0
     for epoch in range(epochs):
