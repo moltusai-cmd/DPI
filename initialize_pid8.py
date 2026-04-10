@@ -111,13 +111,69 @@ def init_phase5_whitening(model, dataloader):
     # W_unembed = (W_unembed - directional_mean) * whitening_matrix
     model.unembed.weight.data = torch.matmul(model.unembed.weight.data - mu.to(model.unembed.weight.device), whitening_matrix.to(model.unembed.weight.device))
 
+def init_phase0_embedding(model, dataloader):
+    """Phase 0: Initialize Embedding via SVD of Co-occurrence Matrix."""
+    print("Phase 0: Seeding Embeddings with Co-occurrence SVD...")
+    vocab_size = model.embedding.num_embeddings
+    d_model = model.d_model
+    
+    # Simple co-occurrence (neighboring tokens)
+    cooc = torch.zeros(vocab_size, vocab_size)
+    count = 0
+    for batch in dataloader:
+        for seq in batch:
+            for i in range(len(seq) - 1):
+                u, v = seq[i], seq[i+1]
+                if u < vocab_size and v < vocab_size:
+                    cooc[u, v] += 1
+                    cooc[v, u] += 1
+        count += 1
+        if count > 50: break # Use small sample
+    
+    # SVD for dimensionality reduction (Vocab -> d_model)
+    # We use a sparse-friendly approach or just small subset for speed
+    # For 16k vocab, dense SVD is okay but slow. Let's use a simpler spectral init.
+    # We'll use the covariance of the co-occurrence counts.
+    U, S, V = torch.svd(cooc[:2000, :2000].float()) # Spectral seed on top 2000 tokens
+    seed = torch.randn(vocab_size, d_model) * 0.02
+    seed[:2000, :min(d_model, 2000)] = U[:, :min(d_model, 2000)]
+    model.embedding.weight.data = seed.to(model.embedding.weight.device)
+
+def init_phase6_calibration(model, dataloader):
+    """Phase 6: Calibrate LayerNorms to ensure unit variance in residual stream."""
+    print("Phase 6: Calibrating Residual Variance...")
+    model.eval()
+    with torch.no_grad():
+        for batch in dataloader:
+            x = model.embedding(batch) * math.sqrt(model.d_model)
+            x = model.pos_encoding(x)
+            
+            for i, layer in enumerate(model.layers):
+                # Measure variance before layer
+                var_in = x.var()
+                
+                # Forward through layer
+                x = layer(x)
+                
+                # Measure variance after
+                var_out = x.var()
+                
+                # Adjust LayerNorm gain to stabilize
+                # scale = sqrt(1 / var_out)
+                scale = torch.sqrt(1.0 / (var_out + 1e-6))
+                layer.ln1.weight.data *= scale
+                layer.ln2.weight.data *= scale
+            break # One batch is enough for calibration
+
 def initialize_pid8(model, dataloader):
+    init_phase0_embedding(model, dataloader)
     init_phase1_dct(model)
     init_phase2_kmeans(model, dataloader)
     init_phase3_svd(model, dataloader)
     init_phase4_qr(model)
     init_phase5_whitening(model, dataloader)
-    print("PID-8 Initialization Complete.")
+    init_phase6_calibration(model, dataloader)
+    print("PID-8 (Fertile Soil Edition) Initialization Complete.")
 
 if __name__ == "__main__":
     from torch.utils.data import DataLoader, TensorDataset

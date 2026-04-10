@@ -36,6 +36,11 @@ class MultiHeadAttention(nn.Module):
         v = self.W_v(x).view(batch_size, seq_len, self.n_heads, self.d_head).transpose(1, 2)
         
         scores = torch.matmul(q, k.transpose(-2, -1)) / math.sqrt(self.d_head)
+        
+        # Causal Mask (Lower Triangular)
+        causal_mask = torch.triu(torch.ones(seq_len, seq_len, device=x.device), diagonal=1).bool()
+        scores = scores.masked_fill(causal_mask, -1e9)
+        
         if mask is not None:
             scores = scores.masked_fill(mask == 0, -1e9)
         
