@@ -1,0 +1,132 @@
+[
+    {
+        "params": {
+            "zipf_warp": 1.0,
+            "spectral_gamma": 0.5,
+            "morph_alpha": 0.2
+        },
+        "results": {
+            "step_1": 9.7435,
+            "step_100": 6.9082,
+            "step_500": 6.1156,
+            "step_1000": 5.6809
+        }
+    },
+    {
+        "params": {
+            "zipf_warp": 1.5,
+            "spectral_gamma": 0.5,
+            "morph_alpha": 0.2
+        },
+        "results": {
+            "step_1": 9.7507,
+            "step_100": 6.9873,
+            "step_500": 5.9885,
+            "step_1000": 5.7181
+        }
+    },
+    {
+        "params": {
+            "zipf_warp": 0.5,
+            "spectral_gamma": 0.5,
+            "morph_alpha": 0.2
+        },
+        "results": {
+            "step_1": 9.7901,
+            "step_100": 6.9817,
+            "step_500": 6.0036,
+            "step_1000": 5.7136
+        }
+    },
+    {
+        "params": {
+            "zipf_warp": 1.0,
+            "spectral_gamma": 0.8,
+            "morph_alpha": 0.2
+        },
+        "results": {
+            "step_1": 9.7143,
+            "step_100": 6.822,
+            "step_500": 5.8182,
+            "step_1000": 5.6647
+        }
+    },
+    {
+        "params": {
+            "zipf_warp": 1.0,
+            "spectral_gamma": 0.2,
+            "morph_alpha": 0.2
+        },
+        "results": {
+            "step_1": 9.7566,
+            "step_100": 6.9354,
+            "step_500": 6.136,
+            "step_1000": 5.7358
+        }
+    },
+    {
+        "params": {
+            "zipf_warp": 1.0,
+            "spectral_gamma": 0.5,
+            "morph_alpha": 0.5
+        },
+        "results": {
+            "step_1": 9.7257,
+            "step_100": 6.8175,
+            "step_500": 5.9742,
+            "step_1000": 5.7112
+        }
+    },
+    {
+        "params": {
+            "zipf_warp": 1.2,
+            "spectral_gamma": 0.4,
+            "morph_alpha": 0.3
+        },
+        "results": {
+            "step_1": 9.7326,
+            "step_100": 6.8713,
+            "step_500": 5.8215,
+            "step_1000": 5.7471
+        }
+    },
+    {
+        "params": {
+            "zipf_warp": 0.8,
+            "spectral_gamma": 0.6,
+            "morph_alpha": 0.1
+        },
+        "results": {
+            "step_1": 9.7873,
+            "step_100": 6.8733,
+            "step_500": 6.0802,
+            "step_1000": 5.6596
+        }
+    },
+    {
+        "params": {
+            "zipf_warp": 1.5,
+            "spectral_gamma": 0.3,
+            "morph_alpha": 0.4
+        },
+        "results": {
+            "step_1": 9.7466,
+            "step_100": 6.7725,
+            "step_500": 5.8499,
+            "step_1000": 5.6252
+        }
+    },
+    {
+        "params": {
+            "zipf_warp": 2.0,
+            "spectral_gamma": 0.5,
+            "morph_alpha": 0.2
+        },
+        "results": {
+            "step_1": 9.7296,
+            "step_100": 7.0343,
+            "step_500": 5.9318,
+            "step_1000": 5.72
+        }
+    }
+]
