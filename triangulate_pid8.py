@@ -1,24 +1,19 @@
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader, Dataset, Subset
 from model import PID8Transformer
 from initialize_pid8 import initialize_pid8
-import re
-from collections import Counter
-import math
+import os
 import json
+import time
 import itertools
+from tokenizers import ByteLevelBPETokenizer
 
 class WikiDataset(Dataset):
-    def __init__(self, file_path, vocab, seq_len=128, max_lines=50000):
+    def __init__(self, file_path, tokenizer, seq_len=128, max_lines=100000):
         self.seq_len = seq_len
-        self.vocab = vocab
-        self.data = []
-        with open(file_path, 'r', encoding='utf-8') as f:
-            for i, line in enumerate(f):
-                if i >= max_lines: break
-                tokens = re.findall(r"[\w']+|[.,!?;=]|@-@", line.lower())
-                self.data.extend([self.vocab.get(t, self.vocab['<unk>']) for t in tokens])
+        cache_path = f"wiki_bpe_{max_lines}.pt"
+        self.data = torch.load(cache_path)
         self.num_samples = (len(self.data) - 1) // seq_len
     def __len__(self): return self.num_samples
     def __getitem__(self, idx):
@@ -27,77 +22,85 @@ class WikiDataset(Dataset):
         y = torch.tensor(self.data[start + 1 : start + self.seq_len + 1], dtype=torch.long)
         return x, y
 
-def build_vocab(file_path, vocab_size=16384, max_lines=50000):
-    counter = Counter()
-    with open(file_path, 'r', encoding='utf-8') as f:
-        for i, line in enumerate(f):
-            if i >= max_lines: break
-            tokens = re.findall(r"[\w']+|[.,!?;=]|@-@", line.lower())
-            counter.update(tokens)
-    most_common = counter.most_common(vocab_size - 2)
-    vocab = {word: i + 2 for i, (word, _) in enumerate(most_common)}
-    vocab['<pad>'] = 0; vocab['<unk>'] = 1
-    return vocab
+def evaluate(model, loader, device):
+    model.eval()
+    total_loss = 0
+    criterion = nn.CrossEntropyLoss()
+    with torch.no_grad():
+        for i, (x, y) in enumerate(loader):
+            if i >= 50: break
+            x, y = x.to(device), y.to(device)
+            logits = model(x)
+            loss = criterion(logits.view(-1, logits.size(-1)), y.view(-1))
+            total_loss += loss.item()
+    return round(total_loss / 50, 4)
 
-def run_experiment(params):
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    train_file = "wiki.train.raw"
-    vocab = build_vocab(train_file)
+def run_triangulation_point(params):
+    device = torch.device("cuda")
+    tokenizer = ByteLevelBPETokenizer("bpe_tokenizer/vocab.json", "bpe_tokenizer/merges.txt")
     
-    model = PID8Transformer(vocab_size=16384, d_model=320, n_heads=5, d_mlp=1280, n_layers=8).to(device)
-    train_dataset = WikiDataset(train_file, vocab, seq_len=128, max_lines=50000)
-    train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
+    # Standard 20M Model
+    model = PID8Transformer(vocab_size=tokenizer.get_vocab_size(), d_model=320, n_heads=5, d_mlp=1280, n_layers=8, dropout=0.1).to(device)
     
-    class SimpleLoader:
+    dataset = WikiDataset("wiki.train.raw", tokenizer, seq_len=128, max_lines=100000)
+    indices = list(range(len(dataset)))
+    split = int(0.9 * len(dataset))
+    train_loader = DataLoader(Subset(dataset, indices[:split]), batch_size=32, shuffle=True)
+    val_loader = DataLoader(Subset(dataset, indices[split:]), batch_size=32, shuffle=False)
+    
+    class SL:
         def __init__(self, dl): self.dl = dl
         def __iter__(self):
             for x, y in self.dl: yield x.to(device)
             
-    initialize_pid8(model, SimpleLoader(train_loader), 
+    initialize_pid8(model, SL(train_loader), 
                     zipf_warp=params['zipf_warp'], 
                     spectral_gamma=params['spectral_gamma'], 
-                    morph_alpha=params['morph_alpha'])
+                    morph_alpha=params['morph_alpha'],
+                    use_whitening=False) # We know whitening is better OFF at this scale
     
-    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4, weight_decay=0.01)
+    # 1 Epoch training
+    total_steps = len(train_loader)
     criterion = nn.CrossEntropyLoss()
     
     model.train()
-    total_loss = 0
-    steps = 1000
     for step, (x, y) in enumerate(train_loader):
-        if step >= steps: break
         x, y = x.to(device), y.to(device)
         optimizer.zero_grad()
         logits = model(x)
         loss = criterion(logits.view(-1, logits.size(-1)), y.view(-1))
         loss.backward()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         optimizer.step()
-        total_loss += loss.item()
         
-    avg_loss = total_loss / steps
-    return round(avg_loss, 4)
+    final_val_loss = evaluate(model, val_loader, device)
+    return final_val_loss
 
 if __name__ == "__main__":
-    zipf_warps = [1.4, 1.5, 1.6]
-    spectral_gammas = [0.25, 0.3, 0.35]
-    morph_alphas = [0.35, 0.4, 0.45]
+    test_dir = "tests/Triangulation_Final_1Epoch"
+    os.makedirs(test_dir, exist_ok=True)
+    
+    zipf_warps = [1.0, 1.2, 1.4]
+    spectral_gammas = [0.25, 0.35, 0.45]
+    morph_alphas = [0.25, 0.35, 0.45]
     
     grid = list(itertools.product(zipf_warps, spectral_gammas, morph_alphas))
     
-    print(f"Starting Triangulation on {len(grid)} points...")
-    all_results = []
+    print(f"Starting Final Triangulation (1 Epoch per point, {len(grid)} points)...")
+    results = []
     
     for zw, sg, ma in grid:
         p = {'zipf_warp': zw, 'spectral_gamma': sg, 'morph_alpha': ma}
-        loss = run_experiment(p)
-        print(f"  ZW: {zw:.2f} | SG: {sg:.2f} | MA: {ma:.2f} => Loss: {loss:.4f}")
-        all_results.append({'params': p, 'avg_loss': loss})
+        start_t = time.time()
+        val_loss = run_triangulation_point(p)
+        elapsed = time.time() - start_t
+        print(f"  ZW: {zw:.1f} | SG: {sg:.2f} | MA: {ma:.2f} => Val Loss: {val_loss:.4f} ({elapsed:.1f}s)")
+        results.append({'params': p, 'val_loss': val_loss})
         
-    # Sort results
-    all_results.sort(key=lambda x: x['avg_loss'])
-    
-    with open("triangulation_results.json", "w") as f:
-        json.dump(all_results, f, indent=4)
+    results.sort(key=lambda x: x['val_loss'])
+    with open(f"{test_dir}/triangulation_1epoch.json", "w") as f:
+        json.dump(results, f, indent=4)
         
-    print("\nTriangulation Complete. Best Setup found:")
-    print(all_results[0])
+    print("\nTriangulation Complete. Best Point:")
+    print(results[0])

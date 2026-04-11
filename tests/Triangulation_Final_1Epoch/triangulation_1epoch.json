@@ -1,0 +1,218 @@
+[
+    {
+        "params": {
+            "zipf_warp": 1.0,
+            "spectral_gamma": 0.25,
+            "morph_alpha": 0.45
+        },
+        "val_loss": 5.9466
+    },
+    {
+        "params": {
+            "zipf_warp": 1.4,
+            "spectral_gamma": 0.35,
+            "morph_alpha": 0.45
+        },
+        "val_loss": 5.9526
+    },
+    {
+        "params": {
+            "zipf_warp": 1.0,
+            "spectral_gamma": 0.45,
+            "morph_alpha": 0.35
+        },
+        "val_loss": 5.9528
+    },
+    {
+        "params": {
+            "zipf_warp": 1.2,
+            "spectral_gamma": 0.45,
+            "morph_alpha": 0.45
+        },
+        "val_loss": 5.9529
+    },
+    {
+        "params": {
+            "zipf_warp": 1.2,
+            "spectral_gamma": 0.25,
+            "morph_alpha": 0.35
+        },
+        "val_loss": 5.9533
+    },
+    {
+        "params": {
+            "zipf_warp": 1.4,
+            "spectral_gamma": 0.25,
+            "morph_alpha": 0.25
+        },
+        "val_loss": 5.9542
+    },
+    {
+        "params": {
+            "zipf_warp": 1.2,
+            "spectral_gamma": 0.35,
+            "morph_alpha": 0.25
+        },
+        "val_loss": 5.9554
+    },
+    {
+        "params": {
+            "zipf_warp": 1.2,
+            "spectral_gamma": 0.35,
+            "morph_alpha": 0.45
+        },
+        "val_loss": 5.9554
+    },
+    {
+        "params": {
+            "zipf_warp": 1.4,
+            "spectral_gamma": 0.35,
+            "morph_alpha": 0.35
+        },
+        "val_loss": 5.9563
+    },
+    {
+        "params": {
+            "zipf_warp": 1.4,
+            "spectral_gamma": 0.45,
+            "morph_alpha": 0.35
+        },
+        "val_loss": 5.9566
+    },
+    {
+        "params": {
+            "zipf_warp": 1.0,
+            "spectral_gamma": 0.25,
+            "morph_alpha": 0.35
+        },
+        "val_loss": 5.9567
+    },
+    {
+        "params": {
+            "zipf_warp": 1.0,
+            "spectral_gamma": 0.35,
+            "morph_alpha": 0.25
+        },
+        "val_loss": 5.9567
+    },
+    {
+        "params": {
+            "zipf_warp": 1.0,
+            "spectral_gamma": 0.35,
+            "morph_alpha": 0.45
+        },
+        "val_loss": 5.9569
+    },
+    {
+        "params": {
+            "zipf_warp": 1.4,
+            "spectral_gamma": 0.25,
+            "morph_alpha": 0.35
+        },
+        "val_loss": 5.9571
+    },
+    {
+        "params": {
+            "zipf_warp": 1.4,
+            "spectral_gamma": 0.25,
+            "morph_alpha": 0.45
+        },
+        "val_loss": 5.9574
+    },
+    {
+        "params": {
+            "zipf_warp": 1.2,
+            "spectral_gamma": 0.45,
+            "morph_alpha": 0.35
+        },
+        "val_loss": 5.9583
+    },
+    {
+        "params": {
+            "zipf_warp": 1.4,
+            "spectral_gamma": 0.35,
+            "morph_alpha": 0.25
+        },
+        "val_loss": 5.9583
+    },
+    {
+        "params": {
+            "zipf_warp": 1.4,
+            "spectral_gamma": 0.45,
+            "morph_alpha": 0.45
+        },
+        "val_loss": 5.9583
+    },
+    {
+        "params": {
+            "zipf_warp": 1.0,
+            "spectral_gamma": 0.45,
+            "morph_alpha": 0.45
+        },
+        "val_loss": 5.9584
+    },
+    {
+        "params": {
+            "zipf_warp": 1.0,
+            "spectral_gamma": 0.35,
+            "morph_alpha": 0.35
+        },
+        "val_loss": 5.9589
+    },
+    {
+        "params": {
+            "zipf_warp": 1.2,
+            "spectral_gamma": 0.35,
+            "morph_alpha": 0.35
+        },
+        "val_loss": 5.9593
+    },
+    {
+        "params": {
+            "zipf_warp": 1.0,
+            "spectral_gamma": 0.45,
+            "morph_alpha": 0.25
+        },
+        "val_loss": 5.9625
+    },
+    {
+        "params": {
+            "zipf_warp": 1.2,
+            "spectral_gamma": 0.45,
+            "morph_alpha": 0.25
+        },
+        "val_loss": 5.963
+    },
+    {
+        "params": {
+            "zipf_warp": 1.0,
+            "spectral_gamma": 0.25,
+            "morph_alpha": 0.25
+        },
+        "val_loss": 5.9634
+    },
+    {
+        "params": {
+            "zipf_warp": 1.2,
+            "spectral_gamma": 0.25,
+            "morph_alpha": 0.25
+        },
+        "val_loss": 5.9634
+    },
+    {
+        "params": {
+            "zipf_warp": 1.2,
+            "spectral_gamma": 0.25,
+            "morph_alpha": 0.45
+        },
+        "val_loss": 5.9637
+    },
+    {
+        "params": {
+            "zipf_warp": 1.4,
+            "spectral_gamma": 0.45,
+            "morph_alpha": 0.25
+        },
+        "val_loss": 5.9649
+    }
+]

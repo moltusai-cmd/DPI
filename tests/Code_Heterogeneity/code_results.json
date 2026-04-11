@@ -1,0 +1,66 @@
+{
+    "dpi": [
+        {
+            "step": 1,
+            "train_loss": 9.8864,
+            "val_loss": 9.7417
+        },
+        {
+            "step": 100,
+            "train_loss": 4.4261,
+            "val_loss": 4.7578
+        },
+        {
+            "step": 200,
+            "train_loss": 3.8577,
+            "val_loss": 4.143
+        },
+        {
+            "step": 300,
+            "train_loss": 3.5992,
+            "val_loss": 3.8629
+        },
+        {
+            "step": 400,
+            "train_loss": 3.2592,
+            "val_loss": 3.7142
+        },
+        {
+            "step": 500,
+            "train_loss": 3.0012,
+            "val_loss": 3.6071
+        }
+    ],
+    "xavier": [
+        {
+            "step": 1,
+            "train_loss": 9.7041,
+            "val_loss": 9.7039
+        },
+        {
+            "step": 100,
+            "train_loss": 9.4929,
+            "val_loss": 9.4999
+        },
+        {
+            "step": 200,
+            "train_loss": 8.7985,
+            "val_loss": 8.8195
+        },
+        {
+            "step": 300,
+            "train_loss": 7.9594,
+            "val_loss": 7.9636
+        },
+        {
+            "step": 400,
+            "train_loss": 7.0079,
+            "val_loss": 7.0674
+        },
+        {
+            "step": 500,
+            "train_loss": 6.0616,
+            "val_loss": 6.2374
+        }
+    ]
+}

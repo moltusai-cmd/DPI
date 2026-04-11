@@ -29,25 +29,59 @@ def get_dct_weights(out_dims, in_dims, warp=1.4):
     W = torch.cos(math.pi / in_dims * (warped_j + 0.5) * i)
     return W * math.sqrt(2.0 / in_dims)
 
-def init_phase0_embedding(model, dataloader):
+def init_phase0_embedding(model, dataloader, k=2000):
+    """
+    Phase 0: Lexical Seeding with Nyström Approximation.
+    Allows full-vocabulary seeding with O(N*k) memory instead of O(N^2).
+    """
     vocab_size = model.embedding.num_embeddings
     d_model = model.d_model
-    cooc = torch.zeros(vocab_size, vocab_size, device='cpu')
-    print("Seeding Embeddings (Phase 0 - Vectorized)...")
+    k = min(k, vocab_size)
+    
+    # C_nk: Cross-correlations between ALL tokens and k LANDMARKS
+    C_nk = torch.zeros(vocab_size, k, device='cpu')
+    print(f"Seeding Embeddings (Phase 0 - Nyström Approximation, k={k})...")
+    
     for i, batch in enumerate(dataloader):
-        # batch is on GPU, bring to CPU for co-occurrence matrix
         batch_cpu = batch.cpu()
         u = batch_cpu[:, :-1].reshape(-1)
         v = batch_cpu[:, 1:].reshape(-1)
-        mask = (u < vocab_size) & (v < vocab_size)
-        u, v = u[mask], v[mask]
-        cooc.index_put_((u, v), torch.ones_like(u, dtype=torch.float), accumulate=True)
-        cooc.index_put_((v, u), torch.ones_like(v, dtype=torch.float), accumulate=True)
+        
+        # We only care about co-occurrences where at least one token is a landmark
+        mask_v_is_k = (v < k)
+        mask_u_is_k = (u < k)
+        
+        # Case 1: v is a landmark, u is any token
+        u1, v1 = u[mask_v_is_k], v[mask_v_is_k]
+        if u1.numel() > 0:
+            C_nk.index_put_((u1, v1), torch.ones_like(u1, dtype=torch.float), accumulate=True)
+            
+        # Case 2: u is a landmark, v is any token
+        u2, v2 = u[mask_u_is_k], v[mask_u_is_k]
+        if u2.numel() > 0:
+            C_nk.index_put_((v2, u2), torch.ones_like(v2, dtype=torch.float), accumulate=True)
+            
         if i >= 100: break
-    U, S, V = torch.svd(cooc[:2000, :2000].float())
+
+    # W is the k x k submatrix of correlations between landmarks only
+    W = C_nk[:k, :].float()
+    
+    # SVD of the landmarks matrix W
+    # W = U_w * S_w * V_w^T
+    Uw, Sw, Vw = torch.svd(W)
+    
+    # Nyström Extension: Approx eigenvectors for the FULL matrix
+    # U_full = C_nk * Uw * inv(Sw)
+    eps = 1e-6
+    inv_Sw = torch.diag(1.0 / torch.sqrt(Sw + eps))
+    U_approx = torch.matmul(C_nk.float(), torch.matmul(Uw, inv_Sw))
+    
+    # Seed the entire embedding layer
     seed = torch.randn(vocab_size, d_model) * 0.02
-    seed[:2000, :min(d_model, 2000)] = U[:, :min(d_model, 2000)]
-    model.embedding.weight.data = seed.to(model.embedding.weight.device)
+    dims_to_seed = min(d_model, k)
+    seed[:, :dims_to_seed] = U_approx[:, :dims_to_seed]
+    
+    model.embedding.weight.data = seed.to(model.embedding.weight.data.device)
 
 def init_phase5_whitening(model, dataloader):
     X = get_activations(model, dataloader, len(model.layers)-1)
@@ -77,18 +111,28 @@ def init_phase6_calibration(model, dataloader):
             layer.ln1.weight.data *= (accum_scales[i] / count)
             layer.ln2.weight.data *= (accum_scales[i] / count)
 
-def initialize_pid8(model, dataloader, zipf_warp=1.1, spectral_gamma=0.35, morph_alpha=0.35,
-                    use_phase0=True, use_cast=True, use_hunchback=True, use_whitening=True, use_calibration=True):
+def initialize_pid8(model, dataloader, zipf_warp=1.0, spectral_gamma=0.25, morph_alpha=0.45,
+                    use_phase0=True, use_cast=True, use_hunchback=True, use_whitening=False, use_calibration=True):
     device = next(model.parameters()).device
     n_layers = len(model.layers)
     if use_phase0: init_phase0_embedding(model, dataloader)
+    
+    print("Phase 1: Collecting Activations for K-Means (8B Scale)...")
     X_init = get_activations(model, dataloader, -1)
+    
+    print("Phase 2: Computing K-Means Clusters...")
     km = MiniBatchKMeans(n_clusters=model.d_model, n_init=3, batch_size=1024).fit(X_init.cpu().numpy())
     centers = torch.from_numpy(km.cluster_centers_).float().to(device)
+    
+    print("Phase 3: Computing Global Spectral Priors (SVD)...")
     X_centered = X_init - X_init.mean(dim=0)
     U, S, V = torch.svd(torch.matmul(X_centered.t(), X_centered) / X_centered.size(0))
+    
+    print(f"Phase 4: Sculpting {n_layers} Layers (DPI Manifold Construction)...")
     dct_cache = {}
     for l in range(n_layers):
+        if l % 5 == 0 or l == n_layers - 1:
+            print(f"  Sculpting Layer {l:2d}/{n_layers}...")
         progress = l / (n_layers - 1) if n_layers > 1 else 0
         cast_f = (1.0 - 0.5 * math.sin(math.pi * progress)) if use_cast else 1.0
         current_gamma = spectral_gamma * cast_f * (1.05 if l % 2 != 0 else 0.95)
@@ -110,6 +154,8 @@ def initialize_pid8(model, dataloader, zipf_warp=1.1, spectral_gamma=0.35, morph
         M2 = torch.randn(d_mlp, d_mlp, device=device)
         Q2, _ = torch.linalg.qr(M2)
         model.layers[l].mlp.W2.weight.data = Q2[:model.d_model, :]
-    if use_whitening: init_phase5_whitening(model, dataloader)
+    if use_whitening: 
+        print("Phase 5: Whitening Final Layer...")
+        init_phase5_whitening(model, dataloader)
     if use_calibration: init_phase6_calibration(model, dataloader)
     print(f"PID-14 Turbo Initialized.")
