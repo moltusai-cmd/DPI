@@ -4,22 +4,30 @@ from torch.utils.data import DataLoader, Dataset
 from model import PID8Transformer
 from initialize_pid8 import initialize_pid8
 import os
-import re
-from collections import Counter
-import math
 import json
 import time
+from tokenizers import ByteLevelBPETokenizer
 
 class WikiDataset(Dataset):
-    def __init__(self, file_path, vocab, seq_len=128, max_lines=100000):
+    def __init__(self, file_path, tokenizer, seq_len=128, max_lines=100000):
         self.seq_len = seq_len
-        self.vocab = vocab
-        self.data = []
-        with open(file_path, 'r', encoding='utf-8') as f:
-            for i, line in enumerate(f):
-                if i >= max_lines: break
-                tokens = re.findall(r"[\w']+|[.,!?;=]|@-@", line.lower())
-                self.data.extend([self.vocab.get(t, self.vocab['<unk>']) for t in tokens])
+        dataset_name = os.path.basename(file_path).split('.')[0]
+        cache_path = f"{dataset_name}_bpe_{max_lines}.pt"
+        
+        if os.path.exists(cache_path):
+            print(f"Loading tokenized data from cache: {cache_path}")
+            self.data = torch.load(cache_path)
+        else:
+            self.data = []
+            print(f"Loading and tokenizing {file_path} with BPE...")
+            with open(file_path, 'r', encoding='utf-8') as f:
+                for i, line in enumerate(f):
+                    if i >= max_lines: break
+                    tokens = tokenizer.encode(line).ids
+                    self.data.extend(tokens)
+            print(f"Saving tokenized data to cache: {cache_path}")
+            torch.save(self.data, cache_path)
+            
         self.num_samples = (len(self.data) - 1) // seq_len
     def __len__(self): return self.num_samples
     def __getitem__(self, idx):
@@ -27,18 +35,6 @@ class WikiDataset(Dataset):
         x = torch.tensor(self.data[start : start + self.seq_len], dtype=torch.long)
         y = torch.tensor(self.data[start + 1 : start + self.seq_len + 1], dtype=torch.long)
         return x, y
-
-def build_vocab(file_path, vocab_size=16384, max_lines=50000):
-    counter = Counter()
-    with open(file_path, 'r', encoding='utf-8') as f:
-        for i, line in enumerate(f):
-            if i >= max_lines: break
-            tokens = re.findall(r"[\w']+|[.,!?;=]|@-@", line.lower())
-            counter.update(tokens)
-    most_common = counter.most_common(vocab_size - 2)
-    vocab = {word: i + 2 for i, (word, _) in enumerate(most_common)}
-    vocab['<pad>'] = 0; vocab['<unk>'] = 1
-    return vocab
 
 def get_scheduler(optimizer, total_steps):
     warmup_steps = int(0.1 * total_steps)
@@ -49,6 +45,7 @@ def get_scheduler(optimizer, total_steps):
         elif current_step < warmup_steps + plateau_steps: return 1.0
         else:
             progress = float(current_step - warmup_steps - plateau_steps) / float(max(1, cosine_steps))
+            import math
             return 0.1 + 0.9 * (0.5 * (1.0 + math.cos(math.pi * progress)))
     return torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
 
@@ -60,19 +57,22 @@ def xavier_init(model):
 def run_training(init_type, log_path, checkpoint_path):
     device = torch.device("cuda")
     train_file = "wiki.train.raw"
-    vocab = build_vocab(train_file)
     
-    # 60M Model: d_model=512, d_mlp=2048, n_layers=14, n_heads=8
-    model = PID8Transformer(vocab_size=16384, d_model=512, n_heads=8, d_mlp=2048, n_layers=14).to(device)
+    # Load BPE Tokenizer for WikiText
+    tokenizer = ByteLevelBPETokenizer("bpe_tokenizer/vocab.json", "bpe_tokenizer/merges.txt")
+    vocab_size = tokenizer.get_vocab_size()
+    
+    # 20M Model
+    model = PID8Transformer(vocab_size=vocab_size, d_model=320, n_heads=5, d_mlp=1280, n_layers=8).to(device)
     
     from model import count_parameters
-    print(f"\nModel Scale: {count_parameters(model) / 1e6:.2f}M parameters")
+    print(f"\nModel Scale: {count_parameters(model) / 1e6:.2f}M parameters | Vocab: {vocab_size}")
     
-    dataset = WikiDataset(train_file, vocab, seq_len=128, max_lines=100000)
+    dataset = WikiDataset(train_file, tokenizer, seq_len=128, max_lines=100000)
     loader = DataLoader(dataset, batch_size=32, shuffle=True)
     
     if init_type == "dpi":
-        print("\n>>> STARTING DPI TRAINING (Sweet Spot: ZW=1.1, SG=0.55, MA=0.50)")
+        print("\n>>> STARTING DPI TRAINING (PID-13 TDA & Entropy-Lens)")
         class SL:
             def __init__(self, dl): self.dl = dl
             def __iter__(self):
@@ -83,7 +83,7 @@ def run_training(init_type, log_path, checkpoint_path):
         xavier_init(model)
         
     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4, weight_decay=0.01)
-    epochs = 10
+    epochs = 1
     total_steps = len(loader) * epochs
     scheduler = get_scheduler(optimizer, total_steps)
     criterion = nn.CrossEntropyLoss()
@@ -94,8 +94,7 @@ def run_training(init_type, log_path, checkpoint_path):
     
     model.train()
     for epoch in range(epochs):
-        epoch_loss = 0
-        for step, (x, y) in enumerate(loader):
+        for x, y in loader:
             x, y = x.to(device), y.to(device)
             optimizer.zero_grad()
             logits = model(x)
@@ -106,8 +105,6 @@ def run_training(init_type, log_path, checkpoint_path):
             scheduler.step()
             
             global_step += 1
-            epoch_loss += loss.item()
-            
             if global_step % 10 == 0:
                 history.append({
                     "step": global_step,
@@ -117,7 +114,7 @@ def run_training(init_type, log_path, checkpoint_path):
             
             if global_step % 200 == 0:
                 elapsed = time.time() - start_time
-                print(f"[{init_type.upper()}] Epoch {epoch+1}/{epochs} | Step {global_step}/{total_steps} | Loss: {loss.item():.4f} | Time: {elapsed:.1f}s")
+                print(f"[{init_type.upper()}] Step {global_step}/{total_steps} | Loss: {loss.item():.4f} | Time: {elapsed:.1f}s")
                 
     # Save Results
     with open(log_path, "w") as f:
@@ -127,13 +124,13 @@ def run_training(init_type, log_path, checkpoint_path):
 
 if __name__ == "__main__":
     # DPI FIRST
-    run_training("dpi", "logs_dpi.json", "model_dpi_final.pt")
+    run_training("dpi", "logs_dpi_wiki_20m.json", "model_dpi_wiki_20m.pt")
     
     # CLEAR MEMORY
     torch.cuda.empty_cache()
     time.sleep(5)
     
     # XAVIER SECOND
-    run_training("xavier", "logs_xavier.json", "model_xavier_final.pt")
+    run_training("xavier", "logs_xavier_wiki_20m.json", "model_xavier_wiki_20m.pt")
     
-    print("\nDUEL COMPLETE. Good night!")
+    print("\nWIKI 20M DUEL COMPLETE.")

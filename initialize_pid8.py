@@ -4,6 +4,7 @@ import numpy as np
 from sklearn.cluster import MiniBatchKMeans
 from model import PID8Transformer
 import math
+import torch.nn.functional as F
 
 def get_activations(model, dataloader, layer_idx):
     model.eval()
@@ -16,9 +17,16 @@ def get_activations(model, dataloader, layer_idx):
             for i in range(layer_idx + 1):
                 x = model.layers[i](x)
             activations.append(x.view(-1, x.size(-1)))
-            if len(activations) * x.size(1) >= 1000:
-                break
+            if len(activations) * x.size(1) >= 1000: break
     return torch.cat(activations, dim=0)
+
+def get_dct_weights(out_dims, in_dims, warp=1.4):
+    W = torch.zeros(out_dims, in_dims)
+    for i in range(out_dims):
+        for j in range(in_dims):
+            warped_j = math.pow(j / in_dims, warp) * in_dims
+            W[i, j] = math.cos(math.pi / in_dims * (warped_j + 0.5) * i)
+    return W * math.sqrt(2.0 / in_dims)
 
 def init_phase0_embedding(model, dataloader):
     vocab_size = model.embedding.num_embeddings
@@ -39,56 +47,8 @@ def init_phase0_embedding(model, dataloader):
     seed[:2000, :min(d_model, 2000)] = U[:, :min(d_model, 2000)]
     model.embedding.weight.data = seed.to(model.embedding.weight.device)
 
-def init_phase1_dct(model, zipf_warp=1.0):
-    """Phase 1: DCT with Zipfian Warping."""
-    d_model = model.d_model
-    for i in [0, 1]:
-        d_mlp = model.layers[i].mlp.W1.out_features
-        W1 = torch.zeros(d_mlp, d_model)
-        for row in range(d_mlp):
-            for col in range(d_model):
-                # Warping the frequency index
-                warped_col = math.pow(col / d_model, zipf_warp) * d_model
-                W1[row, col] = math.cos(math.pi / d_model * (warped_col + 0.5) * row)
-        model.layers[i].mlp.W1.weight.data = W1.to(model.layers[i].mlp.W1.weight.device)
-
-def init_phase2_kmeans(model, dataloader):
-    for i in [2, 3]:
-        X = get_activations(model, dataloader, i - 1).cpu().numpy()
-        kmeans_q = MiniBatchKMeans(n_clusters=model.d_model, n_init=3, batch_size=1024)
-        kmeans_q.fit(X)
-        model.layers[i].attn.W_q.weight.data = torch.from_numpy(kmeans_q.cluster_centers_).float().to(model.layers[i].attn.W_q.weight.device)
-        d_mlp = model.layers[i].mlp.W1.out_features
-        kmeans_mlp = MiniBatchKMeans(n_clusters=d_mlp, n_init=3, batch_size=1024)
-        kmeans_mlp.fit(X)
-        model.layers[i].mlp.W1.weight.data = torch.from_numpy(kmeans_mlp.cluster_centers_).float().to(model.layers[i].mlp.W1.weight.device)
-
-def init_phase3_svd(model, dataloader, spectral_gamma=0.5):
-    """Phase 3: SVD with Spectral Gamma power."""
-    for i in [4, 5]:
-        X = get_activations(model, dataloader, i - 1)
-        X = X - X.mean(dim=0)
-        C = torch.matmul(X.t(), X) / X.size(0)
-        U, S, V = torch.svd(C)
-        model.layers[i].attn.W_q.weight.data = (U.t() * torch.pow(S + 1e-6, spectral_gamma).unsqueeze(1)).to(model.layers[i].attn.W_q.weight.device)
-        model.layers[i].attn.W_k.weight.data = U.t().to(model.layers[i].attn.W_k.weight.device)
-        model.layers[i].attn.W_v.weight.data = U.t().to(model.layers[i].attn.W_v.weight.device)
-        d_mlp = model.layers[i].mlp.W1.out_features
-        W1_init = U.t().repeat(math.ceil(d_mlp / model.d_model), 1)[:d_mlp]
-        model.layers[i].mlp.W1.weight.data = W1_init.to(model.layers[i].mlp.W1.weight.device)
-
-def init_phase4_qr(model):
-    for i in [6]:
-        M_o = torch.randn(model.d_model, model.d_model)
-        Q_o, R_o = torch.linalg.qr(M_o)
-        model.layers[i].attn.W_o.weight.data = Q_o.to(model.layers[i].attn.W_o.weight.device)
-        d_mlp = model.layers[i].mlp.W1.out_features
-        M_mlp = torch.randn(d_mlp, d_mlp)
-        Q_mlp, R_mlp = torch.linalg.qr(M_mlp)
-        model.layers[i].mlp.W2.weight.data = Q_mlp[:model.d_model, :].to(model.layers[i].mlp.W2.weight.device)
-
 def init_phase5_whitening(model, dataloader):
-    X = get_activations(model, dataloader, 6)
+    X = get_activations(model, dataloader, len(model.layers)-1)
     mu = X.mean(dim=0)
     X_centered = X - mu
     C = torch.matmul(X_centered.t(), X_centered) / X.size(0)
@@ -111,20 +71,103 @@ def init_phase6_calibration(model, dataloader):
                 layer.ln2.weight.data *= scale
             break
 
-def init_phase7_morphing(model, morph_alpha=0.2):
-    with torch.no_grad():
-        for i in range(1, len(model.layers)):
-            if model.layers[i].mlp.W1.weight.data.shape == model.layers[i-1].mlp.W1.weight.data.shape:
-                model.layers[i].mlp.W1.weight.data = (1 - morph_alpha) * model.layers[i].mlp.W1.weight.data + morph_alpha * model.layers[i-1].mlp.W1.weight.data
-            if model.layers[i].attn.W_q.weight.data.shape == model.layers[i-1].attn.W_q.weight.data.shape:
-                model.layers[i].attn.W_q.weight.data = (1 - morph_alpha) * model.layers[i].attn.W_q.weight.data + morph_alpha * model.layers[i-1].attn.W_q.weight.data
+def apply_spectral_blur(w):
+    w_padded = F.pad(w.unsqueeze(0).unsqueeze(0), (0, 0, 1, 1), mode='replicate')
+    kernel = torch.tensor([[[[0.25], [0.50], [0.25]]]], device=w.device)
+    return F.conv2d(w_padded, kernel).squeeze(0).squeeze(0)
 
-def initialize_pid8(model, dataloader, zipf_warp=1.4, spectral_gamma=0.35, morph_alpha=0.35):
+def get_random_rotation(dim, device, epsilon=0.05):
+    """Generates a rotation matrix near identity to ensure topological divergence."""
+    M = torch.randn(dim, dim, device=device) * epsilon
+    I = torch.eye(dim, device=device)
+    # Cayley transform to get an orthogonal matrix
+    A = M - M.t()
+    R = torch.matmul(I + A, torch.inverse(I - A))
+    return R
+
+def initialize_pid8(model, dataloader, zipf_warp=1.1, spectral_gamma=0.35, morph_alpha=0.35):
+    """PID-13: The TDA & Entropy-Lens Edition.
+    Features: Topological Rotation (Betti divergence) & Entropy Modulation (Expansion/Pruning).
+    """
+    device = next(model.parameters()).device
+    n_layers = len(model.layers)
+    
     init_phase0_embedding(model, dataloader)
-    init_phase1_dct(model, zipf_warp=zipf_warp)
-    init_phase2_kmeans(model, dataloader)
-    init_phase3_svd(model, dataloader, spectral_gamma=spectral_gamma)
-    init_phase4_qr(model)
+    
+    X_init = get_activations(model, dataloader, -1)
+    km = MiniBatchKMeans(n_clusters=model.d_model, n_init=3, batch_size=1024).fit(X_init.cpu().numpy())
+    base_centers = torch.from_numpy(km.cluster_centers_).float().to(device)
+    
+    X_centered = X_init - X_init.mean(dim=0)
+    U, S, V = torch.svd(torch.matmul(X_centered.t(), X_centered) / X_centered.size(0))
+
+    current_centers = base_centers
+    for l in range(n_layers):
+        progress = l / (n_layers - 1) if n_layers > 1 else 0
+        
+        # --- FEATURE 1: TOPOLOGICAL ROTATION (TDA) ---
+        # Rotate the semantic Voronoi space at each layer to prevent redundancy.
+        rotation = get_random_rotation(model.d_model, device, epsilon=0.02)
+        current_centers = torch.matmul(current_centers, rotation)
+        
+        # --- FEATURE 2: ENTROPY MODULATION (Lens) ---
+        # High variance at start (Expansion), Low variance at end (Pruning/Élagage).
+        # Factor goes from 1.5 (uncertainty) to 0.5 (certainty).
+        entropy_factor = 1.5 - progress 
+        
+        # CAST Spectral Modulation
+        cast_factor = 1.0 - 0.5 * math.sin(math.pi * progress)
+        current_gamma = spectral_gamma * cast_factor * (1.05 if l % 2 != 0 else 0.95)
+        
+        layer_svd_basis = (U.t() * torch.pow(S + 1e-6, current_gamma).unsqueeze(1)).to(device)
+        
+        # ID Hunchback
+        w_semantic = math.exp(-0.5 * ((progress - 0.5) / 0.25)**2)
+        w_syntax = math.exp(-progress * 4.0)
+        
+        # MLP Transition
+        dct_w1 = get_dct_weights(model.layers[l].mlp.W1.out_features, model.d_model, warp=zipf_warp).to(device)
+        svd_w1 = layer_svd_basis.repeat(math.ceil(model.layers[l].mlp.W1.out_features / model.d_model), 1)[:model.layers[l].mlp.W1.out_features]
+        
+        # Ricci Sparsity in the middle
+        total_w = w_syntax + w_semantic
+        w1_mixed = (w_syntax * dct_w1 + w_semantic * svd_w1) / total_w
+        if 0.3 < progress < 0.7:
+            n_blocks = 4
+            mask = torch.zeros_like(w1_mixed)
+            chunk_out = mask.size(0) // n_blocks
+            chunk_in = mask.size(1) // n_blocks
+            for b in range(n_blocks):
+                mask[b*chunk_out:(b+1)*chunk_out, b*chunk_in:(b+1)*chunk_in] = 1.0
+            w1_mixed = w1_mixed * torch.where(mask == 1.0, 1.0, 0.1)
+        model.layers[l].mlp.W1.weight.data = w1_mixed
+        
+        # Attention with Entropy Scaling
+        # Apply entropy_factor to Wq and Wk to flatten/sharpen attention distribution
+        wq = ((1-progress) * current_centers + progress * layer_svd_basis) * entropy_factor
+        wk = ((1-progress) * current_centers + progress * layer_svd_basis) * entropy_factor
+        wv = (1-progress) * current_centers + progress * layer_svd_basis
+        
+        # Spectral Blur at the end
+        if progress > 0.7:
+            wq = apply_spectral_blur(wq)
+            wk = apply_spectral_blur(wk)
+            wv = apply_spectral_blur(wv)
+            
+        model.layers[l].attn.W_q.weight.data = wq
+        model.layers[l].attn.W_k.weight.data = wk
+        model.layers[l].attn.W_v.weight.data = wv
+        
+        # Output projections (QR + Heartbeat V2)
+        residual_gain = 1.2 if l % 2 != 0 else 0.2
+        M = torch.randn(model.d_model, model.d_model, device=device)
+        Q, _ = torch.linalg.qr(M)
+        model.layers[l].attn.W_o.weight.data = Q * residual_gain
+        M2 = torch.randn(model.layers[l].mlp.W1.out_features, model.layers[l].mlp.W1.out_features, device=device)
+        Q2, _ = torch.linalg.qr(M2)
+        model.layers[l].mlp.W2.weight.data = Q2[:model.d_model, :] * residual_gain
+
     init_phase5_whitening(model, dataloader)
-    init_phase7_morphing(model, morph_alpha=morph_alpha)
     init_phase6_calibration(model, dataloader)
+    
+    print(f"PID-13 (TDA & Entropy-Lens Edition) Initialization Complete.")

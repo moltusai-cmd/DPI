@@ -17,7 +17,7 @@ class PositionalEncoding(nn.Module):
         return x + self.pe[:, :x.size(1)]
 
 class MultiHeadAttention(nn.Module):
-    def __init__(self, d_model, n_heads):
+    def __init__(self, d_model, n_heads, dropout=0.1):
         super().__init__()
         assert d_model % n_heads == 0
         self.d_head = d_model // n_heads
@@ -27,6 +27,8 @@ class MultiHeadAttention(nn.Module):
         self.W_k = nn.Linear(d_model, d_model, bias=False)
         self.W_v = nn.Linear(d_model, d_model, bias=False)
         self.W_o = nn.Linear(d_model, d_model, bias=False)
+        self.attn_dropout = nn.Dropout(dropout)
+        self.resid_dropout = nn.Dropout(dropout)
 
     def forward(self, x, mask=None):
         batch_size, seq_len, d_model = x.size()
@@ -37,7 +39,7 @@ class MultiHeadAttention(nn.Module):
         
         scores = torch.matmul(q, k.transpose(-2, -1)) / math.sqrt(self.d_head)
         
-        # Causal Mask (Lower Triangular)
+        # Causal Mask
         causal_mask = torch.triu(torch.ones(seq_len, seq_len, device=x.device), diagonal=1).bool()
         scores = scores.masked_fill(causal_mask, -1e9)
         
@@ -45,46 +47,51 @@ class MultiHeadAttention(nn.Module):
             scores = scores.masked_fill(mask == 0, -1e9)
         
         attn = torch.softmax(scores, dim=-1)
+        attn = self.attn_dropout(attn)
+        
         out = torch.matmul(attn, v).transpose(1, 2).contiguous().view(batch_size, seq_len, d_model)
-        return self.W_o(out)
+        return self.resid_dropout(self.W_o(out))
 
 class MLP(nn.Module):
-    def __init__(self, d_model, d_mlp):
+    def __init__(self, d_model, d_mlp, dropout=0.1):
         super().__init__()
         self.W1 = nn.Linear(d_model, d_mlp, bias=False)
         self.W2 = nn.Linear(d_mlp, d_model, bias=False)
         self.act = nn.GELU()
+        self.dropout = nn.Dropout(dropout)
 
     def forward(self, x):
-        return self.W2(self.act(self.W1(x)))
+        return self.dropout(self.W2(self.act(self.W1(x))))
 
 class TransformerBlock(nn.Module):
-    def __init__(self, d_model, n_heads, d_mlp):
+    def __init__(self, d_model, n_heads, d_mlp, dropout=0.1):
         super().__init__()
-        self.attn = MultiHeadAttention(d_model, n_heads)
-        self.mlp = MLP(d_model, d_mlp)
         self.ln1 = nn.LayerNorm(d_model)
+        self.attn = MultiHeadAttention(d_model, n_heads, dropout)
         self.ln2 = nn.LayerNorm(d_model)
+        self.mlp = MLP(d_model, d_mlp, dropout)
 
     def forward(self, x, mask=None):
+        # Pre-LayerNorm Architecture
         x = x + self.attn(self.ln1(x), mask=mask)
         x = x + self.mlp(self.ln2(x))
         return x
 
 class PID8Transformer(nn.Module):
-    def __init__(self, vocab_size=16384, d_model=320, n_heads=5, d_mlp=1280, n_layers=8, max_len=512):
+    def __init__(self, vocab_size=16384, d_model=320, n_heads=5, d_mlp=1280, n_layers=8, max_len=512, dropout=0.1):
         super().__init__()
         self.d_model = d_model
         self.embedding = nn.Embedding(vocab_size, d_model)
         self.pos_encoding = PositionalEncoding(d_model, max_len)
+        self.dropout = nn.Dropout(dropout)
         self.layers = nn.ModuleList([
-            TransformerBlock(d_model, n_heads, d_mlp) for _ in range(n_layers)
+            TransformerBlock(d_model, n_heads, d_mlp, dropout) for _ in range(n_layers)
         ])
         self.ln_f = nn.LayerNorm(d_model)
         self.unembed = nn.Linear(d_model, vocab_size, bias=False)
 
     def forward(self, x, mask=None):
-        x = self.embedding(x) * math.sqrt(self.d_model)
+        x = self.dropout(self.embedding(x) * math.sqrt(self.d_model))
         x = self.pos_encoding(x)
         for layer in self.layers:
             x = layer(x, mask=mask)
