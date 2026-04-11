@@ -17,7 +17,8 @@ def get_activations(model, dataloader, layer_idx):
             for j in range(layer_idx + 1):
                 x = model.layers[j](x)
             activations.append(x.view(-1, x.size(-1)))
-            if i >= 10: break
+            # Increase sample for large models (need at least d_model samples)
+            if len(activations) * x.size(1) >= max(2000, model.d_model * 2): break 
     return torch.cat(activations, dim=0)
 
 def get_dct_weights(out_dims, in_dims, warp=1.4):

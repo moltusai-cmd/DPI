@@ -1,14 +1,14 @@
 # 1. INTRODUCTION
 
-The current paradigm of artificial intelligence is dominated by the dogma of "Scaling Laws" (Kaplan et al., 2020), which posits that model performance is primarily a function of compute, data volume, and parameter count. Within this framework, the initial state of the network is treated as a tabula rasa—a blank slate filled with stochastic noise. This approach, while effective at massive scales, is thermodynamically and computationally inefficient.
+The dominant paradigm in Large Language Model (LLM) development is guided by Scaling Laws (Kaplan et al., 2020), which emphasize compute, data volume, and parameter count as the primary determinants of performance. Under this framework, model initialization is typically treated as a neutral starting condition, implemented via stochastic noise to preserve signal variance.
 
-The "Stochastic Tax" of modern deep learning is most evident during the initial phases of training. Standard initializations, such as Xavier (Glorot & Bengio, 2010), are designed to preserve signal variance but carry no information regarding the structure of the data the model is about to process. As a result, the first 10-20% of a model’s pre-training budget is spent "unlearning" noise and rediscovering fundamental structures, such as frequency filters for syntax and semantic clustering for concepts.
+However, this stochastic approach introduces notable inefficiencies during the early stages of pre-training. Standard initializations, such as Xavier (Glorot & Bengio, 2010), do not incorporate information regarding the structural properties of the target data. Consequently, a non-trivial portion of the training budget is dedicated to discovering fundamental linguistic and mathematical invariants, such as spectral filters for syntax and topological clusters for semantic relations.
 
-In this paper, we challenge the necessity of this stochastic phase. We propose that the Transformer manifold possesses a "Natural Geometric State"—a specific configuration of weights that aligns with the intrinsic dimensionality and spectral properties of natural language. By pre-conditioning the network into this state using deterministic algorithms (DPI), we can bypass the discovery phase entirely.
+In this work, we investigate whether the Transformer manifold possesses a more optimal initial state—a geometric configuration that aligns with the intrinsic dimensionality and spectral characteristics of natural language. We propose **Deterministic Pipeline Initialization (DPI)** as a method to instantiate this state using deterministic algorithms applied during the initialization phase.
 
-Our contribution is three-fold:
-1.  **Structural Seeding**: We show how SVD-based co-occurrence seeding and DCT-based spectral warping can provide models with immediate linguistic intuition.
-2.  **The CAST Trajectory**: We implement a depth-dependent spectral modulation that mimics the information compression bottleneck observed in high-performing models.
-3.  **The Death of Warmup**: We provide empirical evidence that geometric alignment renders traditional learning rate warmup obsolete, allowing for more aggressive and stable training regimes.
+Our contributions include:
+1.  **Structural Initialization**: A method for incorporating SVD-based lexical seeding and spectral warping into the initial weight manifold.
+2.  **Dynamic Spectral Modulation**: The implementation of a depth-dependent spectral trajectory that mirrors the information compression characteristics observed in trained models.
+3.  **Warmup Independence**: Empirical evidence that geometric pre-conditioning enhances initial gradient stability, potentially reducing or eliminating the need for traditional learning rate warmup schedules.
 
-Through extensive benchmarking on the WikiText and arXiv datasets, we demonstrate that DPI-initialized models start their training at a level of maturity that standard models take thousands of iterations to achieve, effectively shifting the baseline of LLM efficiency.
+Through comparative benchmarking, we show that DPI-initialized models exhibit a more efficient learning trajectory, reaching target perplexity levels significantly faster than models initialized with standard stochastic methods.

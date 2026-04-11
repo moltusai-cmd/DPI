@@ -1,11 +1,10 @@
 # 5. CONCLUSION
 
-This paper has introduced **Deterministic Pipeline Initialization (DPI)**, a framework that successfully eliminates the stochastic bottleneck of Transformer pre-training. By aligning the initial weight manifold with the mathematical invariants of natural language (spectral density, topological clustering, and unit variance), we have demonstrated that:
+In this work, we have presented **Deterministic Pipeline Initialization (DPI)**, a framework for pre-conditioning Transformer architectures through depth-aware geometric alignment. Our empirical results suggest that the "stochastic bottleneck" typically encountered during the early stages of pre-training can be mitigated by incorporating data-aware priors at initialization. 
 
-1.  **Linguistic intelligence is geometrically prior to gradient optimization.** A model that starts with the correct priors learns faster and reaches deeper semantic understanding.
-2.  **The traditional warmup phase is an unnecessary cost.** It serves only to correct the deficiencies of random initialization.
-3.  **Efficiency gains of 3x to 8x are achievable on commodity hardware.** DPI democratizes LLM training by drastically reducing the compute threshold required for meaningful convergence.
+Specifically, we have demonstrated that:
+1.  **Geometric Pre-conditioning Accelerates Learning**: Models initialized with structural priors exhibit higher initial gradient conductivity and reach target perplexity levels more efficiently.
+2.  **Stability is a Function of Manifold Alignment**: High-scale models can be trained without traditional warmup schedules when the initial weight space is pre-calibrated for the target data distribution.
+3.  **Compute Requirements Can Be Optimized**: The observed 3x to 8x efficiency gains highlight the potential for more accessible and sustainable LLM development.
 
-Our results suggest a new path for Large Language Model development: moving away from the "Tabula Rasa" approach toward a **Geometric Calibration** paradigm. Future work will explore the application of DPI to multimodal architectures and the potential for a "Universal Harmonic Initialization" that generalizes across all data types.
-
-The era of stochastic search is ending; the era of **Geometric Engineering** has begun.
+DPI represents a shift from treating neural networks as randomized black boxes toward a more **Deterministic Calibration** paradigm. Future research will explore the generalization of these harmonic constants across diverse modalities and the theoretical limits of geometric pre-training efficiency.

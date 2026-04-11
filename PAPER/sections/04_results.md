@@ -3,7 +3,13 @@
 We evaluated DPI across a range of model scales and datasets. In all experiments, we used AdamW with a peak learning rate of $10^{-4}$ and compared DPI against a Xavier Uniform baseline.
 
 ### 4.1 Convergence Acceleration
-On the **20M parameter** WikiText-BPE benchmark, DPI (PID-14) achieved a **3.2x speedup** in reaching the baseline's final perplexity. The most significant gains occurred in the first 1,000 steps, where DPI maintained a loss delta of **~1.90**, proving near-instantaneous information absorption.
+On the **20M parameter** WikiText-BPE benchmark, DPI (PID-14) achieved a **3.2x speedup** in reaching the baseline's final perplexity. 
+
+![Convergence Comparison (20M)](figures/convergence_sprint.png)
+
+The most significant gains occurred in the first 1,000 steps, where DPI maintained a loss delta of **~1.90**, proving near-instantaneous information absorption.
+
+![Performance Advantage (Loss Delta)](figures/delta_advantage.png)
 
 ### 4.2 Stability and the "Death of Warmup"
 To test scaling stability, we trained a **335M parameter** model on arXiv abstracts starting directly at $LR=10^{-4}$ with **0% warmup**. 

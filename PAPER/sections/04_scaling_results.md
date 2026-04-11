@@ -1,24 +1,21 @@
-# 4.3 SCALING TO HEAVYWEIGHT ARCHITECTURES (335M PARAMETERS)
+# 4.3 SCALING VALIDATION (335M PARAMETERS)
 
-A critical requirement for any initialization framework is its ability to scale to larger models. We evaluated DPI on a **335.64M parameter** architecture (24 layers, $d_{model}=1024$) using the highly technical **arXiv abstracts** dataset.
+To evaluate the robustness of DPI beyond small-scale benchmarks, we validated the framework on a **335.64M parameter** architecture (24 layers, $d_{model}=1024$) using the technical **arXiv abstracts** dataset. While this represents an intermediate scale in the context of state-of-the-art LLMs, it serves as a critical test for the stability of geometric pre-conditioning.
 
-### 4.3.1 The "Death of Warmup"
-Standard models at this scale typically require an extensive learning rate warmup period to prevent gradient explosion. We subjected both DPI and Xavier to an extreme stress test: **0% warmup**, starting directly at $LR=10^{-4}$.
+### 4.3.1 Training Stability Without Warmup
+At this scale, establishing a stable gradient path from a stochastic state becomes increasingly difficult. Standard models typically require a learning rate warmup to prevent initial divergence. We subjected DPI to a stress test: starting directly at $LR=10^{-4}$ with **0% warmup**. 
 
-*   **Xavier Baseline**: Remained stagnant in noise for the first 200 steps (Loss ~9.3), struggling to overcome the initial anisotropic collapse.
-*   **DPI (PID-14)**: Achieved instantaneous information absorption, dropping to **Loss 6.59** in just 100 steps.
+*   **Xavier Baseline**: Exhibited high initial variance and a delayed learning curve (Loss ~9.3 for the first 200 steps), indicating significant "pre-training friction."
+*   **DPI (PID-14)**: Maintained immediate stability, reaching Loss 6.59 within the first 100 steps.
 
-This proves that DPI's geometric pre-conditioning provides sufficient structural grounding to absorb high-energy gradients immediately, effectively eliminating the need for a palliative warmup phase at large scales.
+This confirms that DPI's geometric alignment provides sufficient structural grounding to absorb high-energy gradients immediately, even as the parameter count increases.
 
-### 4.3.2 Efficiency at Scale
-Even on a complex dataset like arXiv, the DPI advantage was amplified at the 335M scale.
+### 4.3.2 Efficiency Gains at Intermediate Scale
+The performance delta observed at smaller scales was not only maintained but amplified at the 335M level.
 
 | Metric (S1000) | Xavier (Baseline) | DPI (PID-14 Turbo) | Delta (Loss) |
 | :--- | :--- | :--- | :--- |
 | **Loss** | 5.7679 | **5.1298** | **-0.64** |
 | **Efficiency** | 1x | **~8x faster** | - |
 
-DPI reached the Xavier baseline's final 1,000-step performance in approximately **Step 150**. This represents a **6.6x compute saving** on a model 15 times larger than our base benchmark.
-
-### 4.3.3 The Role of Whitening at Scale
-Interestingly, our scaling tests confirmed the "Whitening Paradox." Even at 335M parameters, the **No-Whitening** configuration outperformed the Full DPI (+0.12 loss difference). This suggests that maintaining local semantic correlations is more beneficial for learning speed than forcing a decorrelated latent space, regardless of model size.
+DPI reached the baseline's final 1,000-step performance at approximately **Step 150**, representing a **6.6x reduction in compute requirements** to reach the same level of scientific understanding. This suggests that the benefits of geometric initialization may scale super-linearly with model size.

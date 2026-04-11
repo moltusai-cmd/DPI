@@ -56,10 +56,10 @@ def xavier_init(model):
 
 def run_training(init_type, log_path, checkpoint_path):
     device = torch.device("cuda")
-    train_file = "wiki.train.raw"
+    train_file = "arxiv.train.raw"
     
-    # Load BPE Tokenizer for WikiText
-    tokenizer = ByteLevelBPETokenizer("bpe_tokenizer/vocab.json", "bpe_tokenizer/merges.txt")
+    # Load BPE Tokenizer for arXiv
+    tokenizer = ByteLevelBPETokenizer("bpe_tokenizer_arxiv/vocab.json", "bpe_tokenizer_arxiv/merges.txt")
     vocab_size = tokenizer.get_vocab_size()
     
     # 20M Model
@@ -72,7 +72,7 @@ def run_training(init_type, log_path, checkpoint_path):
     loader = DataLoader(dataset, batch_size=32, shuffle=True)
     
     if init_type == "dpi":
-        print("\n>>> STARTING DPI TRAINING (PID-13 TDA & Entropy-Lens)")
+        print("\n>>> STARTING DPI TRAINING (PID-14 Rigorous Manifold)")
         class SL:
             def __init__(self, dl): self.dl = dl
             def __iter__(self):
@@ -124,13 +124,13 @@ def run_training(init_type, log_path, checkpoint_path):
 
 if __name__ == "__main__":
     # DPI FIRST
-    run_training("dpi", "logs_dpi_wiki_20m.json", "model_dpi_wiki_20m.pt")
+    run_training("dpi", "logs_dpi_arxiv_20m.json", "model_dpi_arxiv_20m.pt")
     
     # CLEAR MEMORY
     torch.cuda.empty_cache()
     time.sleep(5)
     
     # XAVIER SECOND
-    run_training("xavier", "logs_xavier_wiki_20m.json", "model_xavier_wiki_20m.pt")
+    run_training("xavier", "logs_xavier_arxiv_20m.json", "model_xavier_arxiv_20m.pt")
     
-    print("\nWIKI 20M DUEL COMPLETE.")
+    print("\nARXIV 20M DUEL COMPLETE.")

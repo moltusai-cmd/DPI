@@ -3,7 +3,13 @@
 To investigate if stochastic initialization eventually catches up to geometric pre-conditioning, we extended the WikiText-BPE benchmark to **10 full epochs** (14,740 steps) on the 20.33M parameter architecture.
 
 ### 4.4.1 Crossover and Time-to-Target
-The data reveals that DPI maintains a lead through the entire training cycle. While the Xavier baseline converges steadily, it fails to close the gap created by DPI's initial alignment.
+The data reveals that DPI maintains a lead through the entire training cycle. 
+
+![Long-term Convergence (Marathon)](figures/marathon_convergence.png)
+
+While the Xavier baseline converges steadily, it fails to close the gap created by DPI's initial alignment.
+
+![Advantage Persistence (Marathon Delta)](figures/marathon_delta.png)
 
 *   **Xavier Final Performance**: Val Loss 5.38 at Step 14,500.
 *   **DPI Equivalent Milestone**: Reached Val Loss 5.40 at **Step 7,000**.

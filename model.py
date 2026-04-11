@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import math
+from torch.utils.checkpoint import checkpoint
 
 class PositionalEncoding(nn.Module):
     def __init__(self, d_model, max_len=5000):
@@ -10,8 +11,7 @@ class PositionalEncoding(nn.Module):
         div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
         pe[:, 0::2] = torch.sin(position * div_term)
         pe[:, 1::2] = torch.cos(position * div_term)
-        pe = pe.unsqueeze(0)
-        self.register_buffer('pe', pe)
+        self.register_buffer('pe', pe.unsqueeze(0))
 
     def forward(self, x):
         return x + self.pe[:, :x.size(1)]
@@ -19,10 +19,8 @@ class PositionalEncoding(nn.Module):
 class MultiHeadAttention(nn.Module):
     def __init__(self, d_model, n_heads, dropout=0.1):
         super().__init__()
-        assert d_model % n_heads == 0
         self.d_head = d_model // n_heads
         self.n_heads = n_heads
-        
         self.W_q = nn.Linear(d_model, d_model, bias=False)
         self.W_k = nn.Linear(d_model, d_model, bias=False)
         self.W_v = nn.Linear(d_model, d_model, bias=False)
@@ -31,25 +29,18 @@ class MultiHeadAttention(nn.Module):
         self.resid_dropout = nn.Dropout(dropout)
 
     def forward(self, x, mask=None):
-        batch_size, seq_len, d_model = x.size()
-        
-        q = self.W_q(x).view(batch_size, seq_len, self.n_heads, self.d_head).transpose(1, 2)
-        k = self.W_k(x).view(batch_size, seq_len, self.n_heads, self.d_head).transpose(1, 2)
-        v = self.W_v(x).view(batch_size, seq_len, self.n_heads, self.d_head).transpose(1, 2)
+        B, T, C = x.size()
+        q = self.W_q(x).view(B, T, self.n_heads, self.d_head).transpose(1, 2)
+        k = self.W_k(x).view(B, T, self.n_heads, self.d_head).transpose(1, 2)
+        v = self.W_v(x).view(B, T, self.n_heads, self.d_head).transpose(1, 2)
         
         scores = torch.matmul(q, k.transpose(-2, -1)) / math.sqrt(self.d_head)
-        
-        # Causal Mask
-        causal_mask = torch.triu(torch.ones(seq_len, seq_len, device=x.device), diagonal=1).bool()
-        scores = scores.masked_fill(causal_mask, -1e9)
-        
-        if mask is not None:
-            scores = scores.masked_fill(mask == 0, -1e9)
+        causal_mask = torch.triu(torch.ones(T, T, device=x.device), diagonal=1).bool()
+        scores = scores.masked_fill(causal_mask, float('-inf'))
         
         attn = torch.softmax(scores, dim=-1)
         attn = self.attn_dropout(attn)
-        
-        out = torch.matmul(attn, v).transpose(1, 2).contiguous().view(batch_size, seq_len, d_model)
+        out = torch.matmul(attn, v).transpose(1, 2).contiguous().view(B, T, C)
         return self.resid_dropout(self.W_o(out))
 
 class MLP(nn.Module):
@@ -71,9 +62,8 @@ class TransformerBlock(nn.Module):
         self.ln2 = nn.LayerNorm(d_model)
         self.mlp = MLP(d_model, d_mlp, dropout)
 
-    def forward(self, x, mask=None):
-        # Pre-LayerNorm Architecture
-        x = x + self.attn(self.ln1(x), mask=mask)
+    def forward(self, x):
+        x = x + self.attn(self.ln1(x))
         x = x + self.mlp(self.ln2(x))
         return x
 
@@ -89,18 +79,18 @@ class PID8Transformer(nn.Module):
         ])
         self.ln_f = nn.LayerNorm(d_model)
         self.unembed = nn.Linear(d_model, vocab_size, bias=False)
+        self.gradient_checkpointing = False
 
-    def forward(self, x, mask=None):
+    def forward(self, x):
         x = self.dropout(self.embedding(x) * math.sqrt(self.d_model))
         x = self.pos_encoding(x)
         for layer in self.layers:
-            x = layer(x, mask=mask)
+            if self.gradient_checkpointing and self.training:
+                x = checkpoint(layer, x, use_reentrant=False)
+            else:
+                x = layer(x)
         x = self.ln_f(x)
         return self.unembed(x)
 
 def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
-
-if __name__ == "__main__":
-    model = PID8Transformer()
-    print(f"Total Parameters: {count_parameters(model) / 1e6:.2f}M")
