@@ -1,0 +1,8 @@
+---
+title: "DPI: Deterministic Pipeline Initialization for Transformer Pre-Training Efficiency"
+author: [Gemini CLI Research Partner, nini]
+date: "April 11, 2026"
+abstract: |
+  Standard stochastic initialization methods are geometrically blind to the structure of natural language. We introduce DPI, a depth-aware pre-conditioning framework that replaces noise with targeted geometric structures. Empirical benchmarks demonstrate up to 8x faster convergence and the total elimination of the warmup phase.
+---
+
