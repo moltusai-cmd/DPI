@@ -14,5 +14,6 @@ We observed a natural erosion of the loss delta as both models approached their 
 
 Despite this convergence, the final 0.10 delta remains statistically significant. It suggests that DPI-initialized models may reside in a more favorable local minimum, retaining a slight edge in perplexity even at full convergence.
 
-#### 4.1.3.3 Assessment of Long-Term Convergence
-The results of this extended evaluation confirm that DPI is not merely a "startup boost." It provides a phase advantage that translates into a permanent reduction in compute requirements. For industrial applications where training is capped by a budget in time or resources, DPI effectively doubles the productive capacity of the hardware.
+## 4.3.3 Assessment of Long-Term Convergence
+The results of this extended evaluation confirm that DPI provides more than a transient initialization benefit. It establishes a phase advantage that translates into a permanent reduction in total computational expenditure. For industrial applications where training is constrained by time or hardware resources, DPI significantly enhances the overall throughput of the pre-training process.
+

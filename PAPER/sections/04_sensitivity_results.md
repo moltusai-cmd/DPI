@@ -1,6 +1,6 @@
 ### 4.3.3 Hyperparameter Robustness and Sensitivity
 
-A common critique of deterministic initialization frameworks is the perceived reliance on "magic constants." To address this, we conducted an exhaustive grid search (triangulation) over 27 parameter combinations on a 20.33M model over one full epoch.
+A common critique of deterministic initialization frameworks is the perceived reliance on specific architectural constants. To address this, we conducted an exhaustive grid search (triangulation) over 27 parameter combinations on a 20.33M model over one full epoch.
 
 #### 4.3.3.1 Parameter Optimization Analysis
 The triangulation identified a broad plateau of high performance. The most efficient configuration was found with a Zipfian spectral warp ($\zeta$) of 1.0, a spectral gamma ($\gamma_0$) of 0.25, and a morph alpha ($\alpha$) of 0.45. This configuration reached a validation loss of 5.9466, representing the current lower bound for the DPI framework at this scale.

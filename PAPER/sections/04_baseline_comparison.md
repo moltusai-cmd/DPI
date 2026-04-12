@@ -28,4 +28,4 @@ Comparative Validation Loss across initialization methods (20M Sprints).
 **3. Compute Efficiency**: DPI reached the final 5-epoch performance of the best baseline (Kaiming, 5.97) at approximately **Step 1,500**. This confirms a **4.6x efficiency multiplier** against the most competitive random initialization standards.
 
 #### 4.1.1.4 Conclusion on Baselines
-The empirical evidence proves that DPI outperforms both variance-preserving noise (Xavier/Kaiming) and identity-based scaling (T-Fixup). By instantiating a pre-conditioned latent manifold, DPI allows the optimization process to skip the "discovery" phase and proceed directly to semantic refinement.
+The empirical evidence proves that DPI outperforms both variance-preserving noise (Xavier/Kaiming) and identity-based scaling (T-Fixup). By instantiating a pre-conditioned latent manifold, DPI allows the optimization process to bypass initial stochastic misalignment and proceed directly to semantic refinement.

@@ -1,20 +1,21 @@
-### 4.1.2 Quantitative ROI and Qualitative Syntax Analysis
+### 4.1.2 Quantitative Efficiency and Qualitative Syntax Analysis
 
-To provide a precise economic justification for DPI, we measured the **Compute Return on Investment (ROI)** across different performance thresholds.
+To provide a precise technical justification for DPI, we measured the **Relative Compute Efficiency** across different performance thresholds.
 
-#### 4.1.2.1 Compute ROI Analysis (20M Scale)
+#### 4.1.2.1 Compute Efficiency Analysis (20M Scale)
 The following table tracks the number of training steps required to reach specific Validation Loss targets (Table 2).
 
-Compute Return on Investment (ROI) and Step-Efficiency on WikiText-BPE.
+Table 2: Relative Compute Efficiency and Step-Efficiency on WikiText-BPE.
 
-| Target Loss | Xavier Steps | DPI Steps | Compute ROI (Multiplier) |
+| Target Loss | Xavier Steps | DPI Steps | Efficiency Multiplier |
 | :--- | :--- | :--- | :--- |
 | **8.5** (Initial Syntax) | 450 | 45 | **10.0x** |
 | **7.5** (Pattern Discovery) | 900 | 180 | **5.0x** |
 | **6.5** (Semantic Alignment) | 1,600 | 350 | **4.57x** |
 | **6.2** (Base Convergence) | 8,000 | 1,600 | **5.0x** |
 
-**Conclusion**: DPI delivers a sustained **4.6x to 5.0x compute saving** across the entire training duration. To achieve the same quality as a 1-epoch DPI run, a stochastic model requires nearly 5 epochs of training.
+**Conclusion**: DPI delivers a sustained **4.6x to 5.0x compute reduction** across the entire training duration. To achieve the same quality as a 1-epoch DPI run, a stochastic model requires nearly 5 epochs of training.
+
 
 #### 4.1.2.2 Qualitative Syntax Maturity
 We analyzed the early-step output of both models to identify the "Maturity Gap":
