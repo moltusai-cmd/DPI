@@ -12,7 +12,7 @@ The Xavier baseline exhibited high initial variance and a delayed learning curve
 #### 4.2.1.2 Efficiency Gains at Intermediate Scale
 The performance delta observed at smaller scales was not only maintained but amplified at the 335M level (Table 3).
 
-Table 3: Performance and Efficiency Comparison at 335M Parameter Scale.
+Performance and Efficiency Comparison at 335M Parameter Scale.
 
 | Metric (S1000) | Xavier (Baseline) | DPI (PID-14 High-Conductivity) | Delta (Loss) |
 | :--- | :--- | :--- | :--- |

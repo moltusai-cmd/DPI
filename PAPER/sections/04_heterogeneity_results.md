@@ -8,7 +8,7 @@ Source code presents a unique challenge for initialization due to its rigid synt
 #### 4.2.3.2 Results: Convergence Acceleration Metrics
 On a 20.33M parameter model, DPI demonstrated substantial convergence speedups compared to the stochastic baseline. Specifically, the DPI model reached a level of syntactic understanding at Step 100 that the Xavier baseline failed to achieve even after 500 steps. These results suggest a greater than 5x acceleration in initial information absorption on heterogeneous data.
 
-Table 5: Performance across Heterogeneous Data Domains (Source Code Challenge).
+Performance across Heterogeneous Data Domains (Source Code Challenge).
 
 | Metric (Step 500) | Xavier (Baseline) | DPI (PID-14) | Delta / Ratio |
 | :--- | :--- | :--- | :--- |

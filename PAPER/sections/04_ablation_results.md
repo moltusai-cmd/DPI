@@ -12,7 +12,7 @@ In the new sequential PID-14.1 framework, we evaluated the impact of Phase 6 cal
 
 Results indicate a clear performance advantage for the non-calibrated variant, suggesting that the precision of sequential bootstrapping is sufficiently high that additional variance normalization acts as a signal dampener rather than a stabilizer.
 
-Table 6: Impact of Phase 6 Calibration on Sequential Initialization stability.
+Impact of Phase 6 Calibration on Sequential Initialization stability.
 
 | Variant | Step 300 Loss | Delta vs Xavier | Status |
 | :--- | :--- | :--- | :--- |

@@ -8,11 +8,11 @@ The triangulation identified a broad plateau of high performance. The most effic
 #### 4.3.3.2 Sensitivity Analysis
 Our analysis reveals that DPI is remarkably robust to hyperparameter variance (Figure 3). Performance remains stable across the $[1.0, 1.4]$ range for spectral warp, with a maximum loss variance of only 0.015. This suggests that the power-law alignment provided by the DCT basis is more significant than the specific warp factor. 
 
-![Figure 3: Sensitivity of Validation Loss to the Zipfian Spectral Warp factor $\zeta$.](figures/sensitivity_zeta.png)
+![Sensitivity of Validation Loss to the Zipfian Spectral Warp factor $\zeta$.](figures/sensitivity_zeta.png)
 
 Regarding spectral gamma, the model demonstrated a preference for light to moderate compression. Deviating toward excessively high ($>0.50$) or low ($<0.15$) gamma values causes a slight degradation in performance (Figure 4), confirming that the spectral bottleneck is a real physical constraint for most efficient manifold alignment.
 
-![Figure 4: Sensitivity of Validation Loss to the Spectral Gamma $\gamma_0$.](figures/sensitivity_gamma.png)
+![Sensitivity of Validation Loss to the Spectral Gamma $\gamma_0$.](figures/sensitivity_gamma.png)
 
 #### 4.3.3.3 Robustness Evaluation
 The "flatness" of the loss surface across these parameters proves that DPI is not a brittle method. It provides a stable performance floor that is largely insensitive to minor tuning errors, making it a reliable plug-and-play solution for industrial pre-training.

@@ -9,7 +9,7 @@ We compared two identical 1.1B parameter models initialized with DPI:
 
 #### 4.3.4.2 Results: Persistence of Structural Priors
 
-Table 7: Performance delta between BF16 and NF4 precision regimes under DPI.
+Performance delta between BF16 and NF4 precision regimes under DPI.
 
 | Metric (Step 50) | Native BF16 | Quantized NF4 | Delta / Change |
 | :--- | :--- | :--- | :--- |

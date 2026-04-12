@@ -5,7 +5,7 @@ To provide a precise economic justification for DPI, we measured the **Compute R
 #### 4.1.2.1 Compute ROI Analysis (20M Scale)
 The following table tracks the number of training steps required to reach specific Validation Loss targets (Table 2).
 
-Table 2: Compute Return on Investment (ROI) and Step-Efficiency on WikiText-BPE.
+Compute Return on Investment (ROI) and Step-Efficiency on WikiText-BPE.
 
 | Target Loss | Xavier Steps | DPI Steps | Compute ROI (Multiplier) |
 | :--- | :--- | :--- | :--- |

@@ -12,7 +12,7 @@ The second regime, **S-DPI (Industrial Hybrid)**, combines DPI with $1/\sqrt{2L}
 
 #### 4.2.2.3 Quantitative Performance Metrics
 
-Table 4: Gradient Conductivity and Stability at 8.19B scale (Batch Size 32).
+Gradient Conductivity and Stability at 8.19B scale (Batch Size 32).
 
 | Configuration | Init Type | Learning Rate | GN (Avg) | Loss (U100) | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
