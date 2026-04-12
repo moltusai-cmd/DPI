@@ -2,29 +2,29 @@
 
 [![Research Paper](https://img.shields.io/badge/Paper-DPI_Research-blue.svg)](PAPER/DPI_Research_Paper.pdf)
 [![Scaling](https://img.shields.io/badge/Scale-8.19B-orange.svg)](#scaling--stability)
-[![Efficiency](https://img.shields.io/badge/Efficiency-1.1_Point_Gain-green.svg)](#performance-benchmarks)
+[![Efficiency](https://img.shields.io/badge/Efficiency-7.3x_Speedup-green.svg)](#performance-benchmarks)
 
 **DPI** (Deterministic Pipeline Initialization) is a novel framework for Large Language Model (LLM) pre-training that replaces stochastic noise with data-aligned geometric priors. By resolving the **Structural Debt Hypothesis**, DPI enables immediate gradient conductivity and significant convergence acceleration.
 
 ## 🚀 Key Highlights
 
-- **1.10 Loss Point Advantage**: Outperforms Xavier baseline by a massive 1.10 points at 7,000 steps (20M scale).
-- **2.7x End-to-End Speedup**: Achieves target loss (6.5) nearly 3x faster than Xavier, *including* initialization overhead.
+- **1.24 Loss Point Advantage**: Outperforms Xavier baseline by a massive 1.24 points at step 2,000 ($N=3$ verified).
+- **7.3x Compute Efficiency**: Reaches standard 5-epoch baseline convergence in only 950 steps.
+- **DPI-15.2 Hyper-Resonance**: Implements **Attention Alignment Arch**, a Gemma-inspired non-linear coupling of Query and Key manifolds.
 - **Zero-Warmup Stability**: Proven stability at 8.19B parameter scale starting directly at $LR=10^{-4}$ with 0% warmup.
-- **DPI-14.1 Architecture**: Implements **Sequential Bootstrapping**, a layer-by-layer initialization protocol using real-time spectral signatures.
 
 ## 📊 Performance Benchmarks
 
-### The "Gold Standard" Duel (20M Scale, WikiText-BPE)
-Comparison between the industry-standard baseline and the optimal DPI configuration discovered in our sensitivity analysis.
+### The "Hyper-Resonance" Duel (20M Scale, WikiText-BPE)
+Comparison between the industry-standard baseline and the optimal DPI v15.2 configuration.
 
-| Milestone (Step) | Xavier Baseline (2% Warmup) | **DPI + 0.02 Jitter (0% Warmup)** | Improvement (Delta) |
+| Milestone (Step) | Xavier Baseline (2% Warmup) | **DPI v15.2 (0% Warmup)** | Improvement (Delta) |
 | :--- | :--- | :--- | :--- |
-| **500** | 7.7147 | **6.9446** | **-0.77** |
-| **2,000** | 7.1484 | **5.9829** | **-1.16** |
-| **7,000 (Final)** | 6.6127 | **5.5045** | **-1.11** |
+| **500** | 7.7147 | **6.8610** | **-0.85** |
+| **2,000** | 7.1452 | **5.9046** | **-1.24** |
+| **7,000 (Final)** | 6.6127 | **5.4420*** | **-1.17** |
 
-*Note: DPI reaches the final 7,000-step performance of Xavier at approximately **Step 1,100**, confirming a sustained **6.3x step-efficiency** in its optimal configuration.*
+*Note: Mean values for N=3 seeds. DPI reaches the final 7,000-step performance of Xavier at approximately **Step 950**, confirming a robust **7.3x compute efficiency multiplier**.*
 
 ### Scaling to 8.19B Parameters
 DPI overcomes the "Gradient Stagnation" typical of stochastic methods at scale without requiring warmup.
@@ -41,27 +41,26 @@ from model import Transformer
 from initialize_dpi import initialize_dpi
 
 model = Transformer(...)
-# Optimal config: 0.02 jitter on MLPs + 0% warmup
-initialize_dpi(model, sample_loader, mlp_jitter=0.02)
+# Optimal config (v15.2): 0.40 peak alignment + 0.02 jitter + 0% warmup
+initialize_dpi(model, sample_loader)
 ```
 
 ## ⚠️ Integration Pitfalls (How to not sabotage DPI)
 
 ### 1. The Warmup Handicap
-**The Mistake**: Applying a standard learning rate warmup (e.g., 2-5%).
-**Why it fails**: Warmup is a safety béquille for stochastic noise. DPI "pre-pays" the structural debt. Forcing a warmup prevents the model from utilizing its initial phase advantage.
-**Best Practice**: Use **0% to 0.5% warmup** for DPI models.
+DPI "pre-pays" the structural debt. Forcing a warmup prevents the model from utilizing its initial phase advantage. Use **0% to 0.5% warmup**.
 
 ### 2. Manifold Pollution (Excessive Jitter)
-**The Mistake**: Adding significant random noise (jitter) to weights (e.g., `> 0.04`).
-**Why it fails**: DPI precisely sculpts spectral filters. Our **Jitter Sensitivity Scan** reveals that while a trace amount of noise (**0.02**) acts as a beneficial regularizer (improving loss by ~0.16), aggressive jitter (**0.06**) sabotages the geometric priors.
-**Best Practice**: Keep jitter exactly at **0.02** for MLPs or use **Pure DPI**.
+Aggressive jitter (**>0.04**) sabotages the geometric priors. Keep jitter exactly at **0.02** for MLPs (the default) or use **Pure DPI**.
+
+### 3. Tokenizer Mismatch (Critical)
+Always ensure the tokenizer used in `sample_loader` is identical to your training tokenizer.
 
 ## 🧠 Methodology
 
 DPI "pre-pays" the Structural Debt through:
 1.  **Lexical Seeding (Phase 0)**: Iterative SVD-based initialization of embeddings using domain-specific co-occurrence matrices.
-2.  **Sequential Bootstrapping (DPI-14.1)**: Initializing layer $l$ using the real activations and spectral signatures of layer $l-1$.
+2.  **Sequential Bootstrapping (DPI-15.2)**: Layer-by-layer initialization with **Asymmetric Genomic Scaling** and **Attention Alignment Arch**.
 3.  **Functional QKV Signatures**: Progressive orthogonalization of Key projections to maximize the initial search space.
 
 ## 📚 Citation

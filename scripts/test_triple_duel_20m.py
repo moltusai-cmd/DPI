@@ -1,86 +1,124 @@
 import torch
 import torch.nn as nn
-from model import PID8Transformer
-from initialize_pid8 import initialize_pid8
-from tokenizers import ByteLevelBPETokenizer
-import time
+import sys
 import os
+import time
 import json
+import random
+import numpy as np
+from torch.utils.data import DataLoader, Dataset, Subset
+import math
 
-class WikiDataset(torch.utils.data.Dataset):
-    def __init__(self, tokenizer, seq_len=128, max_lines=20000):
+# Add src to path
+sys.path.append(os.path.join(os.getcwd(), 'src'))
+
+from model import PID8Transformer
+from initialize_dpi import initialize_dpi
+
+# --- 1. REPRODUCIBILITY ---
+def set_seed(seed):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+
+class FastWikiDataset(Dataset):
+    def __init__(self, cache_path, seq_len=128):
         self.seq_len = seq_len
-        self.data = []
-        with open("wiki.train.raw", 'r', encoding='utf-8') as f:
-            for i, line in enumerate(f):
-                if i >= max_lines: break
-                self.data.extend(tokenizer.encode(line).ids)
+        self.data = torch.load(cache_path)
         self.num_samples = (len(self.data) - 1) // seq_len
     def __len__(self): return self.num_samples
     def __getitem__(self, idx):
         start = idx * self.seq_len
-        x = torch.tensor(self.data[start : start + self.seq_len], dtype=torch.long)
-        y = torch.tensor(self.data[start + 1 : start + self.seq_len + 1], dtype=torch.long)
-        return x, y
+        return (torch.tensor(self.data[start : start + self.seq_len], dtype=torch.long),
+                torch.tensor(self.data[start + 1 : start + self.seq_len + 1], dtype=torch.long))
 
-def run_duel(mode):
-    # Set seeds for absolute bit-perfect reproducibility
-    torch.manual_seed(42)
-    torch.cuda.manual_seed_all(42)
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
-    import numpy as np
-    import random
-    np.random.seed(42)
-    random.seed(42)
+def evaluate(model, loader, device, max_steps=50):
+    model.eval()
+    total_loss = 0
+    criterion = nn.CrossEntropyLoss()
+    with torch.no_grad():
+        for i, (x, y) in enumerate(loader):
+            if i >= max_steps: break
+            x, y = x.to(device), y.to(device)
+            logits = model(x)
+            loss = criterion(logits.view(-1, logits.size(-1)), y.view(-1))
+            total_loss += loss.item()
+    return round(total_loss / max_steps, 4)
+
+# --- 2. TRAINING ENGINE ---
+def run_session(seed, mode, loader, val_loader, device, total_steps=2000):
+    set_seed(seed)
+    model = PID8Transformer(vocab_size=16384, d_model=320, n_heads=5, d_mlp=1280, n_layers=8).to(device)
     
-    device = torch.device("cuda")
-    tokenizer = ByteLevelBPETokenizer("bpe_tokenizer/vocab.json", "bpe_tokenizer/merges.txt")
-    
-    # 20M Model
-    model = PID8Transformer(vocab_size=tokenizer.get_vocab_size(), d_model=512, n_heads=8, d_mlp=2048, n_layers=6, dropout=0.1).to(device)
-    
-    dataset = WikiDataset(tokenizer, seq_len=128, max_lines=20000)
-    loader = torch.utils.data.DataLoader(dataset, batch_size=32, shuffle=True)
-    
-    print(f"\n>>> [TRIPLE DUEL] Mode: {mode}...")
-    
-    if mode == "Xavier":
+    if mode == "xavier":
         for p in model.parameters():
             if p.dim() > 1: nn.init.xavier_uniform_(p)
             else: nn.init.zeros_(p)
-    elif mode == "DPI-Full":
-        initialize_pid8(model, loader, use_calibration=True)
-    elif mode == "DPI-NoCalib":
-        initialize_pid8(model, loader, use_calibration=False)
-
+        warmup_steps = 140
+    elif mode == "gold":
+        # DPI 14.1 (Linear Alignment)
+        initialize_dpi(model, loader, use_attention_arch=False, mlp_jitter=0.02)
+        warmup_steps = 0
+    else:
+        # DPI 15.2 (Attention Arch @ 0.40)
+        initialize_dpi(model, loader, use_attention_arch=True, alignment_peak=0.40, mlp_jitter=0.02)
+        warmup_steps = 0
+        
     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
     criterion = nn.CrossEntropyLoss()
     
+    # Cosine scheduler
+    def lr_lambda(current_step):
+        if current_step < warmup_steps: return float(current_step) / float(max(1, warmup_steps))
+        progress = float(current_step - warmup_steps) / float(max(1, 7000 - warmup_steps))
+        return 0.1 + 0.9 * (0.5 * (1.0 + math.cos(math.pi * progress)))
+    scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
+    
     model.train()
-    history = []
-    start_time = time.time()
-    for step, (x, y) in enumerate(loader):
-        if step >= 500: break # Extended to 500 steps
+    it = iter(loader)
+    for step in range(total_steps):
+        try: x, y = next(it)
+        except StopIteration: it = iter(loader); x, y = next(it)
         x, y = x.to(device), y.to(device)
-        optimizer.zero_grad()
-        logits = model(x)
+        optimizer.zero_grad(); logits = model(x)
         loss = criterion(logits.view(-1, logits.size(-1)), y.view(-1))
-        loss.backward()
-        optimizer.step()
+        loss.backward(); optimizer.step(); scheduler.step()
         
-        if (step+1) % 50 == 0 or step == 0:
-            print(f"  Step {step+1:3d} | Loss: {loss.item():.4f}")
-            history.append({"step": step+1, "loss": loss.item()})
+    final_val = evaluate(model, val_loader, device)
+    return final_val
+
+def main():
+    device = torch.device("cuda")
+    cache_file = "checkpoints/wiki_bpe_100000.pt"
+    dataset = FastWikiDataset(cache_file)
+    indices = list(range(len(dataset)))
+    split = int(0.9 * len(dataset))
+    train_loader = DataLoader(Subset(dataset, indices[:split]), batch_size=32, shuffle=True)
+    val_loader = DataLoader(Subset(dataset, indices[split:]), batch_size=32, shuffle=False)
+    
+    seeds = [42, 123, 7]
+    results = {"xavier": [], "gold": [], "hyper": []}
+    
+    for mode in ["xavier", "gold", "hyper"]:
+        print(f"\n🚀 Testing Mode: {mode.upper()}")
+        for s in seeds:
+            res = run_session(s, mode, train_loader, val_loader, device)
+            results[mode].append(res)
+            print(f"  Seed {s} | Val Loss: {res:.4f}")
+            torch.cuda.empty_cache()
             
-    return history[-1]['loss']
+    # --- REPORT ---
+    print("\n" + "="*65)
+    print(f"🏆 TRIPLE DUEL REPORT (2000 steps, N=3)")
+    print("="*65)
+    print(f"{'Mode':<15} | {'Mean Loss':<15} | {'Std Dev'}")
+    print("-" * 65)
+    for m in ["xavier", "gold", "hyper"]:
+        mu, std = np.mean(results[m]), np.std(results[m])
+        print(f"{m.upper():<15} | {mu:.4f}          | {std:.4f}")
+    print("="*65)
 
 if __name__ == "__main__":
-    results = {}
-    results["Xavier"] = run_duel("Xavier")
-    results["DPI-Full"] = run_duel("DPI-Full")
-    results["DPI-NoCalib"] = run_duel("DPI-NoCalib")
-    
-    print("\n--- FINAL TRIPLE DUEL VERDICT (20M) ---")
-    for m, l in results.items():
-        print(f"{m:12s}: Loss {l:.4f}")
+    main()
