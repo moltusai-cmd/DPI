@@ -11,7 +11,7 @@ All tests were performed on a 20.33M parameter Transformer using the WikiText-BP
 
 The table below summarizes the validation loss trajectory across all methods (Table 1).
 
-Comparative Validation Loss across initialization methods (20M Sprints).
+Table 1: Comparative Validation Loss across initialization methods (20M Sprints).
 
 | Milestone (Step) | Xavier (Random) | Kaiming (Standard) | T-Fixup (Zero-Out) | **DPI (PID-14)** |
 | :--- | :--- | :--- | :--- | :--- |

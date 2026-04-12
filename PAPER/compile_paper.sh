@@ -21,6 +21,7 @@ pandoc metadata.yaml \
     sections/04_marathon_results.md \
     sections/04_scaling_results.md \
     sections/04_billions_scaling.md \
+    sections/04_sampling_density.md \
     sections/04_heterogeneity_results.md \
     sections/04_ablation_results.md \
     sections/04_sensitivity_results.md \
