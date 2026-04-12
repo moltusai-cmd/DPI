@@ -50,7 +50,7 @@ def init_phase0_lexical(model, dataloader):
     model.embedding.weight.data = normalize_weight(model.embedding.weight.data, target_std=0.02)
     return U, V
 
-def initialize_dpi(model, dataloader, spectral_gamma=0.25, use_calibration=True, mlp_jitter=0.02, mode="v16"):
+def initialize_dpi(model, dataloader, spectral_gamma=0.25, use_calibration=True, mlp_jitter=0.02, mode="v16.2"):
     device = next(model.parameters()).device
     n_layers = len(model.layers)
     phase_shift_layer = n_layers // 2
