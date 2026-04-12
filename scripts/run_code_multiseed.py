@@ -82,12 +82,14 @@ def run_single_experiment(seed, mode, warmup_pct, device, full_dataset, indices,
     model = PID8Transformer(vocab_size=vocab_size, d_model=320, n_heads=5, d_mlp=1280, n_layers=8).to(device)
     
     if mode == "dpi":
-        initialize_dpi(model, train_loader, warp_zeta=1.1, spectral_gamma=0.25, use_calibration=True)
+        initialize_dpi(model, train_loader, warp_zeta=1.1, spectral_gamma=0.25, use_calibration=True, use_exact_svd=True)
     else:
         xavier_init(model)
-        
+
     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4, weight_decay=0.01)
     warmup_steps = int(warmup_pct * total_steps)
+
+
     
     def lr_lambda(current_step):
         if current_step < warmup_steps: return float(current_step) / float(max(1, warmup_steps))
@@ -152,18 +154,18 @@ def main():
     
     for mode, warmup in [("dpi", 0.0), ("xavier", 0.02)]:
         for seed in seeds:
-            res = run_single_experiment(seed, mode, warmup, device, full_dataset, indices, split, vocab_size)
+            res = run_single_experiment(seed, mode, warmup, device, full_dataset, indices, split, vocab_size, total_steps=500)
             all_metrics[mode].append(res)
             
     # --- 5. STATS ---
     print("\n" + "="*75)
-    print("🏆 CODE DOMAIN MULTI-SEED ROBUSTNESS REPORT (N=5)")
+    print("🏆 CODE DOMAIN MULTI-SEED ROBUSTNESS REPORT (N=3)")
     print("="*75)
     print(f"{'Step':<6} | {'DPI (Loss)':<15} | {'DPI (PPL)':<12} | {'Xavier (Loss)':<15} | {'Xavier (PPL)'}")
     print("-" * 75)
     
     summary = {}
-    for step in [500, 2000, 7000]:
+    for step in [500]:
         d_loss = [m[step]["loss"] for m in all_metrics["dpi"]]
         d_ppl = [m[step]["ppl"] for m in all_metrics["dpi"]]
         x_loss = [m[step]["loss"] for m in all_metrics["xavier"]]

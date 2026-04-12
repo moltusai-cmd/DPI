@@ -82,7 +82,7 @@ class PID8Transformer(nn.Module):
         self.gradient_checkpointing = False
 
     def forward(self, x):
-        x = self.dropout(self.embedding(x) * math.sqrt(self.d_model))
+        x = self.dropout(self.embedding(x))
         x = self.pos_encoding(x)
         for layer in self.layers:
             if self.gradient_checkpointing and self.training:

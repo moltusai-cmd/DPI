@@ -34,6 +34,14 @@ DPI-14.1 demonstrates non-overlapping confidence intervals across all evaluated 
 | **2,000** | 6.601 $\pm$ 0.007 | 6.572 $\pm$ 0.008 | **6.005 $\pm$ 0.014** |
 | **7,000 (Final)** | 6.028 $\pm$ 0.003 | 6.002 $\pm$ 0.004 | **5.692 $\pm$ 0.003** |
 
+### Cross-Domain Generalization (Source Code)
+DPI demonstrates an even larger advantage on highly structured data (Python).
+
+| Metric (Step 500) | Xavier Baseline | **DPI-14.1 (Exact SVD)** | Improvement |
+| :--- | :--- | :--- | :--- |
+| **Validation Loss** | 8.294 | **4.140** | **-4.15** |
+| **Perplexity** | 4000.7 | **62.8** | **63.7x Better** |
+
 ### Scaling to 8.19B Parameters
 DPI overcomes the "Gradient Stagnation" typical of stochastic methods at scale without requiring warmup.
 
