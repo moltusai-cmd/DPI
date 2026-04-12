@@ -34,13 +34,13 @@ class MultiHeadAttention(nn.Module):
         k = self.W_k(x).view(B, T, self.n_heads, self.d_head).transpose(1, 2)
         v = self.W_v(x).view(B, T, self.n_heads, self.d_head).transpose(1, 2)
         
-        scores = torch.matmul(q, k.transpose(-2, -1)) / math.sqrt(self.d_head)
-        causal_mask = torch.triu(torch.ones(T, T, device=x.device), diagonal=1).bool()
-        scores = scores.masked_fill(causal_mask, float('-inf'))
-        
-        attn = torch.softmax(scores, dim=-1)
-        attn = self.attn_dropout(attn)
-        out = torch.matmul(attn, v).transpose(1, 2).contiguous().view(B, T, C)
+        # Use Flash Attention (scaled_dot_product_attention)
+        out = torch.nn.functional.scaled_dot_product_attention(
+            q, k, v, 
+            is_causal=True, 
+            dropout_p=self.attn_dropout.p if self.training else 0.0
+        )
+        out = out.transpose(1, 2).contiguous().view(B, T, C)
         return self.resid_dropout(self.W_o(out))
 
 class MLP(nn.Module):

@@ -153,7 +153,7 @@ def run_benchmark_session(seed, mode, device, tokenizer, train_loader, val_loade
         xavier_init(model)
         warmup_steps = int(0.02 * TRAIN_CONFIG["total_steps"])
         
-    optimizer = torch.optim.AdamW(model.parameters(), lr=TRAIN_CONFIG["lr"], weight_decay=TRAIN_CONFIG["weight_decay"])
+    optimizer = torch.optim.AdamW(model.parameters(), lr=TRAIN_CONFIG["lr"], weight_decay=TRAIN_CONFIG["weight_decay"], fused=True)
     scaler = torch.amp.GradScaler('cuda') # For stable FP16
     
     # Cosine Scheduler
@@ -186,12 +186,13 @@ def run_benchmark_session(seed, mode, device, tokenizer, train_loader, val_loade
                 x, y = next(it)
                 
             x, y = x.to(device), y.to(device)
-            # Use autocast for 335M efficiency on RTX 5080
-            with torch.amp.autocast('cuda'):
+            # Use autocast BF16 for 100M efficiency on RTX 5080
+            with torch.amp.autocast('cuda', dtype=torch.bfloat16):
                 logits = model(x)
                 loss = criterion(logits.view(-1, logits.size(-1)), y.view(-1))
                 loss = loss / TRAIN_CONFIG["grad_accum"]
             
+            # BF16 doesn't strictly need scaler, but keeping structure for robustness
             scaler.scale(loss).backward()
             loss_accum += loss.item()
             
