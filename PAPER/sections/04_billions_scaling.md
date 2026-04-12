@@ -1,25 +1,26 @@
-# 4.10 THE TITAN CHALLENGE: ARCHITECTING SURVIVAL AT 8-BILLION PARAMETERS
+### 4.2.2 Large-Scale Convergence Analysis (8.19-Billion Parameters)
 
 To test the absolute limits of the DPI framework, we scaled our architecture to **8.19 Billion parameters** (40 layers, $d_{model}=4096$). Our objective was to measure "Gradient Conductivity" using a **Virtual Batch Size of 32** (via gradient accumulation), simulating professional pre-training conditions on a single consumer GPU (RTX 5080).
 
-### 4.10.1 The Asphyxia of Stochastic Baselines
-We subjected an industry-standard **Xavier-Scaled** ($1/\sqrt{2L}$) baseline to a "Sudden Launch" protocol: 1,000 steps at $LR=10^{-4}$ with **0% warmup**. 
-*   **Results**: Even with a large virtual batch, the model remained paralyzed. The **Gradient Norm (GN)** hovered at **0.14**, and the loss stagnated at **9.69**. 
-*   **Conclusion**: Stochastic noise at the 8B scale acts as a signal insulator. Without a massive warmup period to "thaw" the weights, the optimizer receives no actionable feedback.
+### 4.5.1 Gradient Stagnation Analysis of Stochastic Baselines
+We subjected an industry-standard **Xavier-Scaled** ($1/\sqrt{2L}$) baseline to a "Sudden Launch" protocol: 1,000 steps at $LR=10^{-4}$ with **0% warmup**. Even with a large virtual batch, the model remained paralyzed, with the Gradient Norm (GN) hovering at 0.14 and the validation loss stagnating at 9.69. These results suggest that stochastic noise at the 8B scale effectively acts as a signal insulator; without a significant warmup period to stabilize the initial weight manifold, the optimizer receives no actionable feedback for gradient updates.
 
-### 4.10.2 DPI Resonance and the S-DPI Hybrid
-In contrast, **DPI (PID-14)** exhibited immediate "High-Signal Resonance." We explored two regimes of this resonance:
-1.  **DPI Pur (Theoretical Purity)**: Without depth-scaling, DPI reached a loss of **7.50** (Update 200). However, the extreme conductivity (**GN > 6000**) requires careful learning rate management to avoid eventual divergence.
-2.  **S-DPI (Industrial Hybrid)**: By combining DPI with $1/\sqrt{2L}$ scaling, we achieved **Aggressive Stability**. The GN was tamed to a robust **~470**, and the model reached a loss of **8.10** in 100 updates.
+### 4.5.2 Spectral Alignment and the S-DPI Hybrid
+In contrast, **DPI (PID-14)** exhibited immediate and robust gradient conductivity. We explored two distinct regimes of this initialization strategy. The first, **DPI Pur (Theoretical Purity)**, omitted depth-scaling and achieved a validation loss of 7.50 by Update 200. However, the high signal conductivity (GN > 6000) observed in this regime necessitates careful learning rate management to prevent eventual divergence. 
 
-### 4.10.3 Quantitative Survival Metrics (Table 6 - Batch Size 32)
+The second regime, **S-DPI (Industrial Hybrid)**, combines DPI with $1/\sqrt{2L}$ depth-scaling to prioritize stability. This configuration successfully stabilized the GN at approximately 470, allowing the model to reach a loss of 8.10 within the first 100 updates. These findings highlight the trade-offs between convergence speed and numerical stability at large scales.
+
+### 4.5.3 Quantitative Performance Metrics
+
+Table 4: Gradient Conductivity and Stability at 8.19B scale (Batch Size 32).
 
 | Configuration | Init Type | Learning Rate | GN (Avg) | Loss (U100) | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Xavier-Scaled** | Stochastic | $10^{-4}$ | 0.14 | 9.69 | **Asphyxiated** |
-| **DPI Pur** | Geometric | $10^{-5}$ | 6411.0 | **7.50*** | **High-Resonance** |
-| **S-DPI Hybrid**| **DPI + $1/\sqrt{2L}$**| $10^{-4}$ | **478.3** | **8.10** | **OPTIMAL** |
+| **Xavier-Scaled** | Stochastic | $10^{-4}$ | 0.14 | 9.69 | **Stagnated** |
+| **DPI Pur** | Geometric | $10^{-5}$ | 6411.0 | **7.50*** | **Conductive** |
+| **S-DPI Hybrid**| **DPI + $1/\sqrt{2L}$**| $10^{-4}$ | **478.3** | **8.10** | **Efficient** |
 *\*DPI Pur data measured at Update 200 due to rapid convergence.*
 
-### 4.10.4 Robustness in Hardware-Constrained Regimes
-The 8.19B model was trained under **4-bit NormalFloat (NF4) quantization** with **CPU offloading** of optimizer states. The stability of the S-DPI hybrid under these conditions proves that geometric initialization is resilient to the numerical noise of extreme compression, enabling professional-grade LLM training on consumer hardware.
+
+### 4.5.4 Robustness Analysis under Hardware Constraints
+The 8.19B model was trained using 4-bit NormalFloat (NF4) quantization with CPU offloading of optimizer states. The sustained stability of the S-DPI hybrid under these conditions demonstrates that geometric initialization is resilient to the numerical noise introduced by extreme model compression. This resilience suggests that DPI is a viable candidate for professional-grade LLM training in hardware-constrained environments.

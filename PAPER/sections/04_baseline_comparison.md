@@ -1,4 +1,6 @@
-# 4.1 COMPARATIVE ANALYSIS AGAINST INDUSTRIAL BASELINES
+## 4.1 Performance Benchmarking at Small Scale
+
+### 4.1.1 Comparative Analysis Against Industrial Baselines
 
 To validate the state-of-the-art performance of DPI, we conducted a head-to-head comparison against three prevalent initialization methods: **Xavier (Glorot) Uniform**, **Kaiming (He) Uniform**, and a **Scaled-Init (T-Fixup inspired)** method.
 
@@ -7,7 +9,9 @@ All tests were performed on a 20.33M parameter Transformer using the WikiText-BP
 
 ### 4.1.2 Quantitative Results (5-Epoch Convergence)
 
-The table below summarizes the validation loss trajectory across all methods.
+The table below summarizes the validation loss trajectory across all methods (Table 1).
+
+Comparative Validation Loss across initialization methods (20M Sprints).
 
 | Milestone (Step) | Xavier (Random) | Kaiming (Standard) | T-Fixup (Zero-Out) | **DPI (PID-14)** |
 | :--- | :--- | :--- | :--- | :--- |
