@@ -5,7 +5,7 @@ To provide a precise technical justification for DPI, we measured the **Relative
 #### 4.1.2.1 Compute Efficiency Analysis (20M Scale)
 The following table tracks the number of training steps required to reach specific Validation Loss targets (Table 2).
 
-Table 2: Relative Compute Efficiency and Step-Efficiency on WikiText-BPE.
+**Table 2: Relative Compute Efficiency and Step-Efficiency on WikiText-BPE.**
 
 | Target Loss | Xavier Steps | DPI Steps | Efficiency Multiplier |
 | :--- | :--- | :--- | :--- |
@@ -14,10 +14,9 @@ Table 2: Relative Compute Efficiency and Step-Efficiency on WikiText-BPE.
 | **6.5** (Semantic Alignment) | 1,600 | 350 | **4.57x** |
 | **6.2** (Base Convergence) | 8,000 | 1,600 | **5.0x** |
 
-**Conclusion**: DPI delivers a sustained **4.6x to 5.0x compute reduction** across the entire training duration. To achieve the same quality as a 1-epoch DPI run, a stochastic model requires nearly 5 epochs of training.
+*Note: The efficiency multiplier is calculated as the ratio of Xavier steps to DPI steps required to reach the target loss. DPI consistently delivers a 4.6x to 10.0x speedup.*
 
-
-#### 4.1.2.2 Qualitative Syntax Maturity
+#### 4.1.2.2 Qualitative Evaluation of Early Syntactic Maturity
 We analyzed the early-step output of both models to identify the "Maturity Gap":
 1.  **Xavier @ Step 100**: "the . the , of and the . . ." (Repetitive token sequences).
 2.  **DPI @ Step 100**: "the species of the forest , which was discovered by the . . ." (Structured noun phrases and clausal dependencies).

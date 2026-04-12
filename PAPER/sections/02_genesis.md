@@ -13,5 +13,5 @@ Research into the internal mechanics of models like Llama, GPT, and Qwen has con
 ## 2.1.1 The Structural Debt Hypothesis
 Standard stochastic methods (Xavier, Kaiming) treat the weight manifold as a blank slate. We hypothesized that this unstructured initial state is the primary cause of early training instabilities and the requirement for extended learning rate warmup. If the final state of an optimized model is a highly structured geometric manifold, then starting from unstructured noise introduces a **representational inefficiency** that the optimizer must overcome through additional compute cycles.
 
-## 2.2 The DPI Philosophy
+## 2.2 Geometric Pre-conditioning Philosophy
 DPI was conceived as a method to "pre-pay" this debt. By replacing random variance with deterministic priors—such as **Zipfian-warped spectral filters** and **SVD-based lexical seeding**—we instantiate a weight manifold that already respects the known signatures of trained models. In essence, DPI does not ask the model to *discover* the geometry of information; it asks the model to *refine* a geometry that is already present.

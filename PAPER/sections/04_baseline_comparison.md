@@ -11,13 +11,15 @@ All tests were performed on a 20.33M parameter Transformer using the WikiText-BP
 
 The table below summarizes the validation loss trajectory across all methods (Table 1).
 
-Table 1: Comparative Validation Loss across initialization methods (20M Sprints).
+**Table 1: Comparative Validation Loss across initialization methods (20M Sprints).**
 
 | Milestone (Step) | Xavier (Random) | Kaiming (Standard) | T-Fixup (Zero-Out) | **DPI (PID-14)** |
 | :--- | :--- | :--- | :--- | :--- |
 | **500** | 7.7163 | 7.6707 | 8.2566 | **6.7299** |
 | **2,000** | 6.5942 | 6.5578 | 6.9838 | **5.8543** |
 | **7,000 (Final)** | 5.9913 | 5.9705 | 6.5203 | **5.5210** |
+
+*Note: All values represent validation loss on WikiText-BPE. Lower is better. DPI demonstrates a persistent advantage of ~0.45 points over standard stochastic baselines.*
 
 #### 4.1.1.3 Key Observations
 

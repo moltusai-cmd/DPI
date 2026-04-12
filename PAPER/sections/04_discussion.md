@@ -1,4 +1,4 @@
-### 4.3.5 The Quantization Tax: Resilience Analysis in Low-Precision Regimes
+### 4.3.5 Low-Precision Resilience: Analysis of the Quantization Tax
 
 To provide a quantitative foundation for DPI’s performance in hardware-constrained environments, we measured the "Quantization Tax"—the degradation in signal quality when moving from native precision to 4-bit quantization.
 
@@ -9,12 +9,14 @@ We compared two identical 1.1B parameter models initialized with DPI:
 
 #### 4.3.5.2 Results: Persistence of Structural Priors
 
-Table 7: Performance delta between BF16 and NF4 precision regimes under DPI.
+**Table 7: Performance delta between BF16 and NF4 precision regimes under DPI.**
 
 | Metric (Step 50) | Native BF16 | Quantized NF4 | Delta / Change |
 | :--- | :--- | :--- | :--- |
 | **Validation Loss** | **6.4690** | 8.0717 | +1.6027 |
 | **Gradient Norm (GN)** | 38.59 | **53.27** | **+38.0% (Excitation)** |
+
+*Note: Data measured at 1.1B scale. The increased Gradient Norm in NF4 indicates a productive excitation of the manifold.*
 
 #### 4.3.5.3 Analysis of Signal Excitation
 Interestingly, the Gradient Norm **increased by 38%** in the quantized regime. We hypothesize that the quantization noise acts as a stochastic "exciter" for the high-conductivity DPI manifold. Rather than impeding the signal, the 4-bit precision introduces a high-frequency jitter that AdamW successfully transmutes into productive updates.

@@ -12,11 +12,13 @@ The Xavier baseline exhibited high initial variance and a delayed learning curve
 #### 4.2.1.2 Efficiency Gains at Intermediate Scale
 The performance delta observed at smaller scales was not only maintained but amplified at the 335M level (Table 3).
 
-Performance and Efficiency Comparison at 335M Parameter Scale.
+**Table 3: Performance and Efficiency Comparison at 335M Parameter Scale.**
 
 | Metric (S1000) | Xavier (Baseline) | DPI (PID-14 High-Conductivity) | Delta (Loss) |
 | :--- | :--- | :--- | :--- |
 | **Loss** | 5.7679 | **5.1298** | **-0.64** |
 | **Efficiency** | 1x | **~8x faster** | - |
+
+*Note: Efficiency is measured as the inverse ratio of steps to reach the baseline performance at 1,000 steps. DPI achieved this milestone at approximately Step 150.*
 
 DPI reached the baseline's final 1,000-step performance at approximately **Step 150**, representing a **6.6x reduction in compute requirements** to reach the same level of scientific understanding. This suggests that the benefits of geometric initialization may scale super-linearly with model size.

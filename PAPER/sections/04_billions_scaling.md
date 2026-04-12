@@ -12,14 +12,15 @@ The second regime, **S-DPI (Industrial Hybrid)**, combines DPI with $1/\sqrt{2L}
 
 #### 4.2.2.3 Quantitative Performance Metrics
 
-Gradient Conductivity and Stability at 8.19B scale (Batch Size 32).
+**Table 4: Gradient Conductivity and Stability at 8.19B scale (Batch Size 32).**
 
 | Configuration | Init Type | Learning Rate | GN (Avg) | Loss (U100) | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Xavier-Scaled** | Stochastic | $10^{-4}$ | 0.14 | 9.69 | **Stagnated** |
 | **DPI Pur** | Geometric | $10^{-5}$ | 6411.0 | **7.50*** | **Conductive** |
 | **S-DPI Hybrid**| **DPI + $1/\sqrt{2L}$**| $10^{-4}$ | **478.3** | **8.10** | **Efficient** |
-*\*DPI Pur data measured at Update 200 due to rapid convergence.*
+
+*Note: DPI Pur data measured at Update 200 due to rapid convergence. S-DPI Hybrid demonstrates the most effective balance for industrial-scale deployment.*
 
 
 #### 4.2.2.4 Robustness Analysis under Hardware Constraints
