@@ -68,19 +68,6 @@ DPI "pre-pays" this debt through three phases:
 
 The **S-DPI (Scaled-DPI)** hybrid is designed for industrial stability at billion-parameter scales. It has been successfully validated on 8.19B parameter models using **4-bit NormalFloat (NF4)** quantization with **0% warmup**, demonstrating that geometric priors are resilient to extreme model compression and numerical noise.
 
-## 📚 Citation
-
-If you use DPI in your research, please cite our paper:
-
-```bibtex
-@article{dpi2024,
-  title={Deterministic Pipeline Initialization (DPI) for LLMs: Accelerating Convergence via Geometric Priors},
-  author={Nini et al.},
-  journal={Research Square / arXiv},
-  year={2026},
-  url={./PAPER/DPI_Research_Paper.pdf}
-}
-```
 
 ## 📜 License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
