@@ -1,4 +1,24 @@
+# Core
 __pycache__/
-*.raw
-*.txt
+*.py[cod]
+*$py.class
+.env
+.venv
+venv/
+env/
+
+# Large Files & Binaries
 *.pt
+*.pth
+*.raw
+*.pdf
+!PAPER/DPI_Research_Paper.pdf
+
+# Logs & Results
+*.log
+*.csv
+results/*.txt
+
+# Internal / Agent
+.gemini/
+tmp/

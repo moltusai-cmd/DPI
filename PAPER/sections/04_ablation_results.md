@@ -1,14 +1,12 @@
-### 4.3.3 Component Ablation: Spectral Whitening and Calibration Convergence
+### 4.3.2 Component Ablation: Spectral Whitening and Calibration Convergence
 
-To understand the contribution of each DPI component in the context of the new **Sequential Bootstrapping (PID-14.1)** architecture, we conducted a multi-scale ablation study. While core structural components, such as lexical seeding and differentiated QKV signatures, are essential, the roles of Mahalanobis whitening and LayerNorm calibration revealed counter-intuitive phenomena.
+To understand the contribution of each DPI component in the context of the new **Sequential Bootstrapping (DPI-14.1)** architecture, we conducted a multi-scale ablation study. While core structural components, such as lexical seeding and differentiated QKV signatures, are essential, the roles of Mahalanobis whitening and LayerNorm calibration revealed counter-intuitive phenomena.
 
-#### 4.3.3.1 Impact of Phase 5 Spectral Whitening (335M Scale)
-Initially, it was hypothesized that Phase 5 whitening would provide necessary decorrelation for larger models. However, at the 335.64M scale, the results were unequivocal: the DPI model without whitening reached a validation loss of 5.60 at Step 200, whereas the full DPI model with whitening achieved a loss of 6.99. 
+**Impact of Phase 5 Spectral Whitening (335M Scale)**: Initially, it was hypothesized that Phase 5 whitening would provide necessary decorrelation for larger models. However, at the 335.64M scale, the results were notable: the DPI model without whitening reached a validation loss of 5.60 at Step 200, whereas the full DPI model with whitening achieved a loss of 6.99. 
 
-This 1.39 point loss advantage suggest that forcing a strictly decorrelated latent space may effectively "strip" the model of the structural priors provided by earlier initialization phases. Consequently, allowing the manifold to maintain its natural spectral density appears to be more beneficial for convergence at intermediate scales.
+This 1.39 point loss advantage suggests that forcing a strictly decorrelated latent space may effectively "strip" the model of the structural priors provided by earlier initialization phases. Consequently, allowing the manifold to maintain its natural spectral density appears to be more beneficial for convergence at intermediate scales.
 
-#### 4.3.3.2 Impact of Phase 6 Layer Calibration (20M Triple Duel)
-In the new sequential PID-14.1 framework, we evaluated the impact of Phase 6 calibration in a direct comparison against a Xavier baseline with 0% warmup over 300 steps. The results indicate that while the DPI-Full model with calibration achieved a stable loss of 6.99, the DPI-NoCalib variant achieved a superior loss of 6.79. 
+**Impact of Phase 6 Layer Calibration (20M Triple Duel)**: In the new sequential DPI-14.1 framework, we evaluated the impact of Phase 6 calibration in a direct comparison against a Xavier baseline with 0% warmup over 300 steps. The results indicate that while the DPI-Full model with calibration achieved a stable loss of 6.99, the DPI-NoCalib variant achieved a superior loss of 6.79. 
 
 Results indicate a clear performance advantage for the non-calibrated variant, suggesting that the precision of sequential bootstrapping is sufficiently high that additional variance normalization acts as a signal dampener rather than a stabilizer.
 
@@ -22,5 +20,4 @@ Results indicate a clear performance advantage for the non-calibrated variant, s
 
 *Note: All tests performed at 20.33M scale with 0% warmup. The No-Calib variant provides the strongest signal flow.*
 
-#### 4.3.3.3 Synthesis of Geometric Autonomy in PID-14.1
-The ablation data across all scales (20M to 335M) suggests that the PID-14.1 (Sequential + No-White + No-Calib) configuration is the most efficient and mathematically consistent. By allowing the manifold to evolve naturally after its initial geometric pre-conditioning, DPI achieves superior convergence without the need for traditional empirical stabilization techniques like whitening or post-hoc calibration.
+**Synthesis of Geometric Autonomy in DPI-14.1**: The ablation data across all scales (20M to 335M) suggests that the DPI-14.1 (Sequential + No-White + No-Calib) configuration is efficient and mathematically consistent. By allowing the manifold to evolve naturally after its initial geometric pre-conditioning, DPI achieves superior convergence without the need for traditional empirical stabilization techniques like whitening or post-hoc calibration.

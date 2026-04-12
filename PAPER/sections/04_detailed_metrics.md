@@ -2,8 +2,7 @@
 
 To provide a precise technical justification for DPI, we measured the **Relative Compute Efficiency** across different performance thresholds.
 
-#### 4.1.2.1 Compute Efficiency Analysis (20M Scale)
-The following table tracks the number of training steps required to reach specific Validation Loss targets (Table 2).
+**Compute Efficiency Analysis (20M Scale)**: The following table tracks the number of training steps required to reach specific Validation Loss targets (Table 2).
 
 **Table 2: Relative Compute Efficiency and Step-Efficiency on WikiText-BPE.**
 
@@ -16,8 +15,7 @@ The following table tracks the number of training steps required to reach specif
 
 *Note: The efficiency multiplier is calculated as the ratio of Xavier steps to DPI steps required to reach the target loss. DPI consistently delivers a 4.6x to 10.0x speedup.*
 
-#### 4.1.2.2 Qualitative Evaluation of Early Syntactic Maturity
-We analyzed the early-step output of both models to identify the "Maturity Gap":
+**Qualitative Evaluation of Early Syntactic Maturity**: We analyzed the early-step output of both models to identify the "Maturity Gap":
 1.  **Xavier @ Step 100**: "the . the , of and the . . ." (Repetitive token sequences).
 2.  **DPI @ Step 100**: "the species of the forest , which was discovered by the . . ." (Structured noun phrases and clausal dependencies).
 
