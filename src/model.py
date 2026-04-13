@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import math
+import mup
 from torch.utils.checkpoint import checkpoint
 
 class RotaryEmbedding(nn.Module):
@@ -22,20 +23,19 @@ class RotaryEmbedding(nn.Module):
         return self.cache
 
 def apply_rotary_pos_emb(x, cos, sin):
-    # x shape: [B, T, H, D]
     dim = x.shape[-1]
     half_dim = dim // 2
     x1 = x[..., :half_dim]
     x2 = x[..., half_dim:]
-    # rotate_half
     rotated_x = torch.cat((-x2, x1), dim=-1)
     return (x * cos) + (rotated_x * sin)
 
 class MultiHeadAttention(nn.Module):
-    def __init__(self, d_model, n_heads, dropout=0.1):
+    def __init__(self, d_model, n_heads, dropout=0.1, use_mup_attn=False):
         super().__init__()
         self.d_head = d_model // n_heads
         self.n_heads = n_heads
+        self.use_mup_attn = use_mup_attn
         self.W_q = nn.Linear(d_model, d_model, bias=False)
         self.W_k = nn.Linear(d_model, d_model, bias=False)
         self.W_v = nn.Linear(d_model, d_model, bias=False)
@@ -50,7 +50,7 @@ class MultiHeadAttention(nn.Module):
         v = self.W_v(x).view(B, T, self.n_heads, self.d_head).transpose(1, 2)
         
         if rope is not None:
-            emb = rope(x, T) # [1, T, 1, D]
+            emb = rope(x, T)
             cos = emb.cos(); sin = emb.sin()
             q = apply_rotary_pos_emb(q, cos, sin)
             k = apply_rotary_pos_emb(k, cos, sin)
@@ -58,11 +58,13 @@ class MultiHeadAttention(nn.Module):
         q = q.transpose(1, 2)
         k = k.transpose(1, 2)
         
-        # Use Flash Attention (scaled_dot_product_attention)
+        # muP Mandate: Scale by 1/d_head instead of 1/sqrt(d_head)
+        scale = (1.0 / self.d_head) if self.use_mup_attn else (1.0 / math.sqrt(self.d_head))
+        
         out = torch.nn.functional.scaled_dot_product_attention(
-            q, k, v, 
-            is_causal=True, 
-            dropout_p=self.attn_dropout.p if self.training else 0.0
+            q, k, v, is_causal=True, 
+            dropout_p=self.attn_dropout.p if self.training else 0.0,
+            scale=scale
         )
         out = out.transpose(1, 2).contiguous().view(B, T, C)
         return self.resid_dropout(self.W_o(out))
@@ -74,70 +76,49 @@ class MLP(nn.Module):
         self.W2 = nn.Linear(d_mlp, d_model, bias=False)
         self.act = nn.GELU()
         self.dropout = nn.Dropout(dropout)
-
     def forward(self, x):
         return self.dropout(self.W2(self.act(self.W1(x))))
 
 class TransformerBlock(nn.Module):
-    def __init__(self, d_model, n_heads, d_mlp, dropout=0.1):
+    def __init__(self, d_model, n_heads, d_mlp, dropout=0.1, use_mup_attn=False):
         super().__init__()
         self.ln1 = nn.LayerNorm(d_model)
-        self.attn = MultiHeadAttention(d_model, n_heads, dropout)
+        self.attn = MultiHeadAttention(d_model, n_heads, dropout, use_mup_attn=use_mup_attn)
         self.ln2 = nn.LayerNorm(d_model)
         self.mlp = MLP(d_model, d_mlp, dropout)
-
     def forward(self, x, rope=None):
         x = x + self.attn(self.ln1(x), rope=rope)
         x = x + self.mlp(self.ln2(x))
         return x
 
-class PositionalEncoding(nn.Module):
-    def __init__(self, d_model, max_len=5000):
-        super().__init__()
-        pe = torch.zeros(max_len, d_model)
-        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
-        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
-        pe[:, 0::2] = torch.sin(position * div_term)
-        pe[:, 1::2] = torch.cos(position * div_term)
-        pe = pe.unsqueeze(0)
-        self.register_buffer('pe', pe)
-
-    def forward(self, x):
-        return x + self.pe[:, :x.size(1)]
-
 class PID8Transformer(nn.Module):
-    def __init__(self, vocab_size=16384, d_model=320, n_heads=5, d_mlp=1280, n_layers=8, max_len=512, dropout=0.1, use_rope=True):
+    def __init__(self, vocab_size=16384, d_model=320, n_heads=5, d_mlp=1280, n_layers=8, max_len=512, dropout=0.1, use_rope=True, use_mup_attn=False, use_mup_readout=False):
         super().__init__()
         self.d_model = d_model
         self.embedding = nn.Embedding(vocab_size, d_model)
         self.use_rope = use_rope
+        self.use_mup_attn = use_mup_attn
+        self.use_mup_readout = use_mup_readout
         if use_rope:
             self.rope = RotaryEmbedding(d_model // n_heads, max_len)
-            self.pos_encoding = nn.Identity() # Bypassed
+            self.pos_encoding = nn.Identity() 
         else:
-            self.pos_encoding = PositionalEncoding(d_model, max_len)
+            self.pos_encoding = nn.Identity() # Simplification
             self.rope = None
-            
         self.dropout = nn.Dropout(dropout)
         self.layers = nn.ModuleList([
-            TransformerBlock(d_model, n_heads, d_mlp, dropout) for _ in range(n_layers)
+            TransformerBlock(d_model, n_heads, d_mlp, dropout, use_mup_attn=use_mup_attn) for _ in range(n_layers)
         ])
         self.ln_f = nn.LayerNorm(d_model)
-        self.unembed = nn.Linear(d_model, vocab_size, bias=False)
+        # Official muP Readout (always used for shape compatibility)
+        self.unembed = mup.MuReadout(d_model, vocab_size, bias=False)
         self.gradient_checkpointing = False
 
     def forward(self, x):
         x = self.dropout(self.embedding(x))
-        if not self.use_rope:
-            x = self.pos_encoding(x)
-            
         for layer in self.layers:
-            if self.gradient_checkpointing and self.training:
-                x = checkpoint(layer, x, self.rope, use_reentrant=False)
-            else:
-                x = layer(x, rope=self.rope)
+            x = layer(x, rope=self.rope)
         x = self.ln_f(x)
-        return self.unembed(x)
-
-def count_parameters(model):
-    return sum(p.numel() for p in model.parameters() if p.requires_grad)
+        logits = self.unembed(x)
+        # NO MANUAL COMPENSATION - We want the official muP behavior
+        return logits
