@@ -51,4 +51,4 @@ def analyze_slope_smoothed_100k(json_path, bin_size=0.05):
             print(f"{b:<10.2f} | {sx:<15.7f} | {sd:<15.7f} | {'N/A':<12} | {cx:<5}/{cd:<5}")
 
 if __name__ == "__main__":
-    analyze_slope_smoothed_100k("marathon_100k_holy_grail.json")
+    analyze_slope_smoothed_100k("results/marathon_100k_holy_grail.json")
