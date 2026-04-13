@@ -24,12 +24,22 @@ class FastWikiDataset(Dataset):
                 torch.tensor(self.data[start + 1 : start + self.seq_len + 1], dtype=torch.long))
 
 def run_session(mode, loader, val_loader, device):
-    print(f"\n🚀 Starting Session: DPI {mode.upper()}")
+    print(f"\n🚀 Starting Session: {mode.upper()}")
     torch.manual_seed(42)
     model = PID8Transformer(vocab_size=16384, d_model=320, n_heads=5, d_mlp=1280, n_layers=8).to(device)
     
-    initialize_dpi(model, loader, mode=mode, mlp_jitter=0.02)
-    
+    # Initialization Toggle
+    if mode == "xavier":
+        print("  Applying Xavier Uniform Baseline (Standard)...")
+        for p in model.parameters():
+            if p.dim() > 1: nn.init.xavier_uniform_(p)
+            else: nn.init.zeros_(p)
+        warmup_steps = 20 # 2% of 1000 steps
+    else:
+        print("  Applying DPI v16.2 Optimized...")
+        initialize_dpi(model, loader, mode="v16.2", spectral_gamma=0.25)
+        warmup_steps = 0
+
     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
     criterion = nn.CrossEntropyLoss()
     
@@ -41,6 +51,11 @@ def run_session(mode, loader, val_loader, device):
         try: x, y = next(it)
         except StopIteration: it = iter(loader); x, y = next(it)
         
+        # Simple Linear Warmup for Xavier
+        if step <= warmup_steps:
+            for pg in optimizer.param_groups:
+                pg['lr'] = 1e-4 * (step / warmup_steps)
+
         x, y = x.to(device), y.to(device)
         optimizer.zero_grad(); logits = model(x)
         loss = criterion(logits.view(-1, logits.size(-1)), y.view(-1))
@@ -59,29 +74,34 @@ def run_session(mode, loader, val_loader, device):
             history[step] = avg_v
             print(f"  > Step {step:4d} | Val Loss: {avg_v:.4f}")
             model.train()
+            
     return history
 
 def main():
     device = torch.device("cuda")
-    cache_file = "checkpoints/wiki_bpe_100000.pt"
+    # Utilisation du cache existant
+    cache_file = "wiki_bpe_100000.pt" 
+    if not os.path.exists(cache_file):
+        cache_file = "checkpoints/wiki_bpe_100000.pt"
+
     dataset = FastWikiDataset(cache_file)
     indices = list(range(len(dataset)))
     split = int(0.9 * len(dataset))
     train_loader = DataLoader(Subset(dataset, indices[:split]), batch_size=32, shuffle=True)
     val_loader = DataLoader(Subset(dataset, indices[split:]), batch_size=32, shuffle=False)
     
-    res_v16 = run_session("v16.2", train_loader, val_loader, device)
+    res_xavier = run_session("xavier", train_loader, val_loader, device)
     torch.cuda.empty_cache(); time.sleep(2)
-    res_v17_1 = run_session("v17.1", train_loader, val_loader, device)
+    res_dpi = run_session("v16.2", train_loader, val_loader, device)
     
     print("\n" + "="*60)
-    print("🏆 THE INVERTED POPULATION DUEL: v16.2 vs v17.1")
+    print("🏆 THE BASELINE DUEL: XAVIER vs DPI v16.2")
     print("="*60)
-    print(f"{'Step':<6} | {'v16.2 (Uniform)':<15} | {'v17.1 (Principal)'} | {'Delta'}")
+    print(f"{'Step':<6} | {'Xavier (Base)':<15} | {'DPI v16.2':<15} | {'Delta'}")
     print("-" * 60)
     for s in [1, 200, 400, 600, 800, 1000]:
-        diff = res_v17_1[s] - res_v16[s]
-        print(f"{s:<6} | {res_v16[s]:.4f}          | {res_v17_1[s]:.4f}          | {diff:.4f}")
+        diff = res_dpi[s] - res_xavier[s]
+        print(f"{s:<6} | {res_xavier[s]:.4f}          | {res_dpi[s]:.4f}          | {diff:.4f}")
     print("="*60)
 
 if __name__ == "__main__":

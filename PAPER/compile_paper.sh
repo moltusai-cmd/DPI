@@ -34,6 +34,7 @@ pandoc metadata_no_title.yaml \
     sections/04_discussion.md \
     sections/05_conclusion.md \
     sections/07_appendix.md \
+    sections/08_appendix_holy_grail.md \
     sections/06_references.md \
     --toc \
     --toc-depth=2 \

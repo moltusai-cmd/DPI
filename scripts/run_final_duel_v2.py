@@ -1,13 +1,17 @@
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, Dataset, Subset
-from model import PID8Transformer
-from initialize_pid8 import initialize_pid8
+import sys
 import os
 import json
 import time
 import math
 from tokenizers import ByteLevelBPETokenizer
+
+# Ajout du path pour src
+sys.path.append(os.path.join(os.getcwd(), 'src'))
+from model import PID8Transformer
+from initialize_dpi import initialize_dpi
 
 class WikiDataset(Dataset):
     def __init__(self, file_path, tokenizer, seq_len=128, max_lines=100000):
@@ -33,8 +37,8 @@ class WikiDataset(Dataset):
         y = torch.tensor(self.data[start + 1 : start + self.seq_len + 1], dtype=torch.long)
         return x, y
 
-def get_scheduler(optimizer, total_steps):
-    warmup_steps = int(0.02 * total_steps)
+def get_scheduler(optimizer, total_steps, warmup_ratio=0.0):
+    warmup_steps = int(warmup_ratio * total_steps)
     def lr_lambda(current_step):
         if current_step < warmup_steps: return float(current_step) / float(max(1, warmup_steps))
         else:
@@ -43,6 +47,7 @@ def get_scheduler(optimizer, total_steps):
     return torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
 
 def xavier_init(model):
+    print("Applying Xavier Uniform...")
     for name, p in model.named_parameters():
         if p.dim() > 1: nn.init.xavier_uniform_(p)
         else: nn.init.zeros_(p)
@@ -60,13 +65,14 @@ def evaluate(model, loader, device):
             total_loss += loss.item()
     return round(total_loss / 50, 4)
 
-def run_training(mode_name, init_mode, use_whitening=True):
+def run_training(mode_name, init_mode, warmup_ratio=0.0):
     device = torch.device("cuda")
-    tokenizer = ByteLevelBPETokenizer("bpe_tokenizer/vocab.json", "bpe_tokenizer/merges.txt")
+    tokenizer_path = "data/tokenizers/bpe_tokenizer"
+    tokenizer = ByteLevelBPETokenizer(f"{tokenizer_path}/vocab.json", f"{tokenizer_path}/merges.txt")
     
     # 20M Architecture
     model = PID8Transformer(vocab_size=16384, d_model=320, n_heads=5, d_mlp=1280, n_layers=8, dropout=0.1).to(device)
-    full_dataset = WikiDataset("wiki.train.raw", tokenizer, seq_len=128, max_lines=100000)
+    full_dataset = WikiDataset("data/raw/wiki.train.raw", tokenizer, seq_len=128, max_lines=100000)
     
     indices = list(range(len(full_dataset)))
     split = int(0.9 * len(full_dataset))
@@ -74,20 +80,20 @@ def run_training(mode_name, init_mode, use_whitening=True):
     val_loader = DataLoader(Subset(full_dataset, indices[split:]), batch_size=32, shuffle=False)
     
     if init_mode == "dpi":
-        print(f"\n>>> [INIT] {mode_name}")
+        print(f"\n>>> [INIT] {mode_name} (v16.2 Optimized)")
         class SL:
             def __init__(self, dl): self.dl = dl
             def __iter__(self):
                 for x, y in self.dl: yield x.to(device)
-        initialize_pid8(model, SL(train_loader), use_whitening=use_whitening)
+        initialize_dpi(model, SL(train_loader), mode="v16.2", spectral_gamma=0.25)
     else:
         print(f"\n>>> [INIT] Xavier Baseline")
         xavier_init(model)
         
     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4, weight_decay=0.01)
-    epochs = 10
+    epochs = 2
     total_steps = len(train_loader) * epochs
-    scheduler = get_scheduler(optimizer, total_steps)
+    scheduler = get_scheduler(optimizer, total_steps, warmup_ratio=warmup_ratio)
     criterion = nn.CrossEntropyLoss()
     
     history = []
@@ -118,20 +124,18 @@ def run_training(mode_name, init_mode, use_whitening=True):
                     model.train()
                 history.append(entry)
                 
-    # Create test directory
-    test_dir = "tests/Marathon_10Epoch_20M"
+    test_dir = "results/Duel_v16.2"
     os.makedirs(test_dir, exist_ok=True)
-    
     with open(f"{test_dir}/duel_20m_{mode_name.lower()}.json", "w") as f:
         json.dump(history, f, indent=4)
     return history
 
 if __name__ == "__main__":
-    # RUN 1: DPI NO WHITENING
-    run_training("DPI_NoWhite", "dpi", use_whitening=False)
+    # RUN 1: DPI (0% Warmup)
+    run_training("DPI_v16_2", "dpi", warmup_ratio=0.0)
     torch.cuda.empty_cache(); time.sleep(5)
     
-    # RUN 2: XAVIER BASELINE
-    run_training("Xavier", "xavier")
+    # RUN 2: XAVIER (2% Warmup)
+    run_training("Xavier", "xavier", warmup_ratio=0.02)
     
-    print("\nSPRINT DUEL 20M COMPLETE.")
+    print("\nDUEL 20M v16.2 vs XAVIER COMPLETE.")

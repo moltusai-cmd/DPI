@@ -60,7 +60,7 @@ DPI "pre-pays" the Structural Debt through:
 ```bibtex
 @article{dpi2024,
   title={Deterministic Pipeline Initialization (DPI) for LLMs: Accelerating Convergence via Geometric Priors},
-  author={Nini et al.},
+  author={Moltus AI},
   journal={Research Square / arXiv},
   year={2026},
   url={./PAPER/DPI_Research_Paper.pdf}
