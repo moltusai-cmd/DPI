@@ -37,7 +37,7 @@ class FastArxivDataset(Dataset):
         y = torch.tensor(self.data[start + 1 : start + self.seq_len + 1], dtype=torch.long)
         return x, y
 
-def get_effective_rank(W, threshold=0.05):
+def get_effective_rank(W, threshold=0.01):
     if W.dim() > 2: W = W.view(-1, W.size(-1))
     s = torch.linalg.svdvals(W.detach().float())
     return (s > threshold * s[0]).sum().item()
@@ -122,6 +122,11 @@ def run_session(name, loader, device, options, total_steps=1000):
             loss = criterion(logits.view(-1, logits.size(-1)), y.view(-1))
         
         scaler.scale(loss).backward()
+        
+        # Calculate GN
+        scaler.unscale_(optimizer)
+        gn = torch.nn.utils.clip_grad_norm_(model.parameters(), float('inf')).item()
+        
         scaler.step(optimizer)
         scaler.update()
         scheduler.step()
@@ -129,8 +134,8 @@ def run_session(name, loader, device, options, total_steps=1000):
         if step % 500 == 0 or step == 1:
             mid_layer = model.layers[12].attn.W_q.weight
             rank = get_effective_rank(mid_layer)
-            print(f"  [{name}] Step {step:4d} | Loss: {loss.item():.4f} | Rank(Wq_mid): {rank}")
-            history.append({"step": step, "loss": round(loss.item(), 4), "rank": rank})
+            print(f"  [{name}] Step {step:4d} | Loss: {loss.item():.4f} | GN: {gn:.2f} | Rank: {rank}")
+            history.append({"step": step, "loss": round(loss.item(), 4), "rank": rank, "gn": round(gn, 2)})
             
     # SAVE MODEL
     os.makedirs("checkpoints", exist_ok=True)
@@ -150,15 +155,16 @@ def main():
     dataset = FastArxivDataset(tokenizer, seq_len=256)
     loader = DataLoader(dataset, batch_size=8, shuffle=True)
     
-    total_steps = 1000 # Short run for quick generation check
+    total_steps = 10000 # Extended run for deep semantic validation
     base_lr = 1e-4
+    dpi_lr = 8e-4
     
-    # TEST A: DPI Pure (0 Warmup)
+    # TEST A: DPI Pure (0 Warmup) - SUPERCHARGED LR
     res_dpi = run_session("DPI_V16_3_STRESS", loader, device, 
-                         {'use_dpi': True, 'base_lr': base_lr, 'warmup_steps': 0}, 
+                         {'use_dpi': True, 'base_lr': dpi_lr, 'warmup_steps': 0}, 
                          total_steps=total_steps)
     
-    # TEST B: Baseline Xavier (2k Warmup)
+    # TEST B: Baseline Xavier (2k Warmup) - STANDARD LR
     res_xavier = run_session("XAVIER_BASELINE", loader, device, 
                             {'use_dpi': False, 'base_lr': base_lr, 'warmup_steps': 2000}, 
                             total_steps=total_steps)
