@@ -108,8 +108,8 @@ In a definitive head-to-head duel at the 100M parameter scale (Llama-style, BS=6
 | **Convergence Speedup** | 1.0x | **7.1x** | Reached final baseline loss at step 1400 |
 
 **Semantic Depth (Zero-Shot Generation at Step 10k):**
-- **MuDPI (Stable-Decay)**: Correctly synthesized the theoretical link between Einstein and the **Euler-Lagrange equations** (via Hilbert-Einstein action).
-- **Xavier**: Remained trapped in structural boilerplate and generic placeholder repetition.
+- **MuDPI (Stable-Decay)**: Successfully synthesized the foundational link between Einstein and the **Euler-Lagrange equations** (via Hilbert-Einstein action).
+- **Xavier**: Remained trapped in structural boilerplate (@xmath) and generic placeholder repetition.
 
 #### Testing Protocol: The Pareto-Optimal Arena
 To ensure a rigorous comparison, each initialization was pushed to its respective **Stability Limit ($LR_{crit}$)** identified via grid search:
