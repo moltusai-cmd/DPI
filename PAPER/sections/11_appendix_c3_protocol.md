@@ -42,10 +42,10 @@ We monitor the "Atrophy of the Manifold" (Dimensional Collapse) using SVD at a $
 
 ## XI.5 The Structural Integrity Paradox: Generalization vs. Collapse
 
-The C3 protocol reveals a fundamental divergence in how initialization methods handle low-density data (16M tokens for 100M parameters):
+The C3 protocol reveals a fundamental divergence in how initialization methods handle low-density data:
 
-1.  **Xavier’s Pyrrhic Victory**: While the Xavier baseline achieved a lower final validation loss (2.09), it suffered significant **Dimensional Collapse**, losing 12 effective dimensions in the Query projection (Rank $Q$ dropping from 767 to 756). This suggests that stochastic models "overfit" small datasets by collapsing their manifold into a narrower subspace, effectively trading future generalizability for immediate loss reduction.
-2.  **MuDPI’s Geometric Resilience**: Despite being seeded on a foreign domain (ArXiv), MuDPI maintained **absolute rank integrity (768/768)** throughout the training process. Its higher final loss (2.44) reflects a refusal to collapse its universal geometric priors to fit the narrow distribution of the 16M token dataset. 
+1.  **Xavier’s Pyrrhic Victory**: While the Xavier baseline achieved a lower final validation loss, it suffered significant **Dimensional Collapse**, losing 12 effective dimensions in the Query projection. Following the **RankMe** principle [@garrido2023rankme], this drop in $\rho_{eff}$ indicates a contraction of the available feature space, trading long-term representational diversity for immediate loss minimization.
+2.  **MuDPI’s Geometric Resilience**: MuDPI maintained **absolute rank integrity (768/768)** throughout the process. This confirms that DPI-initialized models are more resilient to the "atrophy" described by @roy2007effective, preserving their full parametric capacity even when faced with domain-transfer tasks.
 
 **Conclusion**: In domain-transfer scenarios, MuDPI acts as a **structural stabilizer**, preventing the model from "atrophying" its latent space. This preservation of rank ensures that the model retains its full parametric capacity for future multi-task learning, whereas the Xavier-initialized model enters a state of structural debt.
 

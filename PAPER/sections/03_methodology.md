@@ -30,5 +30,10 @@ To prevent gradient instability at billion-parameter scales:
 1.  **Strict Orthogonality**: All output and MLP projection matrices are initialized via QR decomposition to ensure $W^T W = I$.
 2.  **Dynamic Isometry (Phase 6)**: LayerNorm gains are calibrated by measuring the empirical variance of the sequential signal flow, ensuring $Var(x) \approx 1.0$ at every manifold boundary.
 
+#### 3.4.1 Geometric Integrity and Effective Rank
+To quantify the "Structural Debt" and subsequent dimensional collapse during training, we monitor the **Effective Rank** ($\rho_{eff}$) of key weight matrices. We define $\rho_{eff}$ as the number of singular values $\sigma_i$ that satisfy $\sigma_i > \delta \cdot \sigma_{max}$, where $\delta$ is an energy threshold (set to $10^{-3}$ in our benchmarks).
+
+This metric is grounded in the **RankMe** framework proposed by @garrido2023rankme, which establishes a correlation between the rank of representations and downstream performance. Furthermore, our monitoring of the manifold's complexity aligns with the formal measure of structural diversity defined by @roy2007effective. By maintaining a high effective rank, DPI-14.1 ensures that the model utilizes its full parametric capacity from the first iteration.
+
 ### 3.5 Structural Parameters and Nomenclature
 For a comprehensive definition of the technical abbreviations and framework components (e.g., DPI-14.1, **S-DPI**) used in this methodology, please refer to **the Appendix**.
