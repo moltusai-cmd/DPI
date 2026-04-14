@@ -35,5 +35,16 @@ Establish **DPI v16.2 "Phase-Shift Genomic"** as the state-of-the-art framework 
 - **Reference**: `PAPER/DPI_Research_Paper.pdf`
 - **Mystery Archive**: `src/RESEARCH.md` (Explains why v16.2 beats v17.x).
 
+## 🏛️ Scientific Rigor & Academic Integrity
+
+To ensure maximum credibility within the global research community (ArXiv, ICLR, NeurIPS), all project artifacts must adhere to the highest standards of academic discourse.
+
+- **Terminology Prohibition**: Strictly forbid the use of "marketing" or "hype-based" terminology in public documentation, commit messages, or research papers. 
+    - *Prohibited*: "Holy Grail", "Supercharged", "Battle/Duel", "Money Table/Plot", "Magic/Miracle", "Sonic Regime".
+    - *Required*: "Long-term Convergence Analysis", "Geometrically Augmented", "Comparative Analysis", "Principal Performance Summary", "Empirical Robustness", "High-Stability Regime".
+- **Evidence-Based Claims**: All performance claims (e.g., "7.1x speedup") must be supported by reproducible logs (`results/*.json`) and standardized benchmark protocols (C3, Pareto-Optimal).
+- **Tone Mandate**: Maintain a neutral, objective, and analytical tone. Focus on geometric properties, spectral integrity, and manifold conductivity rather than competitive dominance.
+- **Documentation Parity**: Ensure absolute numerical consistency between `README.md`, `PAPER/*.md`, and experimental results.
+
 ---
 *DPI is a "Symbolic/Semantic Manifold Accelerator." Prioritize geometric alignment over stochastic exploration.*
