@@ -1,32 +1,131 @@
-# Deterministic Pipeline Initialization (DPI)
+# DPI: Deterministic Pipeline Initialization
 
-[![Research Paper](https://img.shields.io/badge/Paper-DPI_Research-blue.svg)](PAPER/DPI_Research_Paper.pdf)
-[![Scaling](https://img.shields.io/badge/Scale-8.19B-orange.svg)](#scaling--stability)
-[![Efficiency](https://img.shields.io/badge/Efficiency-1.21_Point_Gain-green.svg)](#performance-benchmarks)
+> **Faster, more stable LLM pre-training by replacing stochastic noise with data-aligned geometric priors.**
 
-**DPI** (Deterministic Pipeline Initialization) is a novel framework for Large Language Model (LLM) pre-training that replaces stochastic noise with data-aligned geometric priors. By resolving the **Structural Debt Hypothesis**, DPI enables immediate gradient conductivity and significant convergence acceleration.
+[![Paper](https://img.shields.io/badge/paper-April%202026-blue)](.)
+[![Scale](https://img.shields.io/badge/validated-20M%20→%208.19B%20params-green)](.)
+[![License](https://img.shields.io/badge/license-MIT-orange)](.)
 
-## 🚀 Key Highlights
+---
 
-- **1.21 Loss Point Advantage**: Outperforms Xavier baseline by a massive 1.21 points at step 1,000.
-- **5.0x Compute Efficiency**: Reaches Xavier's 2,000-step performance in only 400 steps.
-- **DPI-16.2 Genomic Ready**: Features **Zero-Wait Head** and **Phase-Shift Transition** for total architectural alignment.
-- **Zero-Warmup Stability**: Proven stability at 8.19B parameter scale starting directly at $LR=10^{-4}$ with 0% warmup.
+## Overview
 
-## 📊 Performance Benchmarks
+Standard weight initialization methods (Xavier, Kaiming) treat the model as a blank slate — they know nothing about the data the model is about to learn. This forces the optimizer to spend the early phase of training discovering basic linguistic structure from scratch, a cost we call **Structural Debt**.
 
-### The "Genomic Ready" Duel (20M Scale, WikiText-BPE)
-Comparison between the industry-standard baseline and the optimal DPI v16.2 configuration.
+**DPI (Deterministic Pipeline Initialization)** eliminates this debt by seeding model weights with spectral and semantic priors derived from the target data distribution *before* training begins. The result is a model that enters gradient descent already geometrically aligned with the structure of natural language.
 
-| Milestone (Step) | Xavier Baseline (2% Warmup) | **DPI v16.2 (0% Warmup)** | Improvement (Delta) |
-| :--- | :--- | :--- | :--- |
-| **1 (Init)** | 10.82 | **9.16** | **-1.66** |
-| **500** | 7.72 | **6.71** | **-1.01** |
-| **1,000** | 7.38 | **6.17** | **-1.21** |
+Key results across scales from 20M to 8.19B parameters:
 
-*Note: DPI v16.2 reaches Xavier's 2,000-step performance (7.15) at approximately **Step 380**, confirming a **5.2x speedup multiplier**.*
+- **Up to 10x step-wise speedup** over Xavier initialization at the 20M scale
+- **2.71x faster end-to-end** wall-clock time to reach the same validation loss
+- **Warmup-free training** at all tested scales, including 8.19B parameters
+- **Permanent advantage** — the efficiency gap does not close over 100,000 steps
 
-## 🛠 Usage
+---
+
+## How It Works
+
+DPI replaces random initialization with a **Sequential Bootstrapping pipeline** (DPI-14.1), treating the network as a dynamic signal flow rather than a collection of independent layers.
+
+```
+[Phase 0]  Lexical Seeding      — Embed matrix initialized via Nyström-SVD of token co-occurrence
+[Phase 1]  Spectral Analysis    — Per-layer SVD captures signal energy distribution at depth l
+[Phase 2]  Basis Mixing         — Weights = mixture of DCT syntactic basis + SVD semantic basis
+[Phase 3]  QKV Signatures       — Differentiated functional roles for Query, Key, and Value heads
+[Phase 4]  Zero-Wait Head       — Output head aligned with the lexical manifold before step 1
+[Phase 6]  Isometry & Calib.    — QR decomposition for output/MLP projections; variance calibration
+```
+
+### QKV Functional Signatures
+
+| Projection | Strategy | Purpose |
+|---|---|---|
+| **Key (K)** | Progressive QR orthogonalization, peaking at L/2 | Defines distinct hypothesis axes |
+| **Value (V)** | Low-rank spectral compression (γ ≈ 0.4γ_base) | Stable value propagation along dominant PCs |
+| **Query (Q)** | Aligned with K initially, diverges with depth | Bootstraps attention, then enables complex routing |
+
+---
+
+## Results
+
+### Small Scale — 20M Parameters (WikiText-BPE)
+
+| Step | Xavier (2% warmup) | DPI v16.2 (0% warmup) | Δ Loss |
+|---|---|---|---|
+| 1 | 10.8241 | 9.1651 | −1.66 |
+| 200 | 8.1420 | 7.2140 | −0.93 |
+| 500 | 7.7220 | 6.7130 | −1.01 |
+| 1,000 | 7.3840 | 6.1699 | −1.21 |
+
+**Step efficiency to reach target loss:**
+
+| Target Loss | Xavier Steps | DPI Steps | Speedup |
+|---|---|---|---|
+| 8.5 | 450 | 45 | **10.0x** |
+| 7.5 | 900 | 180 | **5.0x** |
+| 6.5 | 1,865 | 564 | **3.3x** |
+| 6.2 | 8,000 | 1,600 | **5.0x** |
+
+**Wall-clock benchmark (RTX 5080, Batch 32, target Loss = 6.5):**
+
+| Method | T_init | Steps | T_total |
+|---|---|---|---|
+| Xavier | 0.001s | 1,865 | 42.75s |
+| DPI-14.1 | 2.372s | 564 | **15.74s** |
+
+Despite a 2,372x higher initialization cost, DPI is **2.71x faster end-to-end**.
+
+### Intermediate Scale — 335M Parameters (arXiv Abstracts)
+
+DPI reached the Xavier baseline's 1,000-step performance in approximately **150 steps** (~6.6x compute reduction), with no warmup.
+
+### Large Scale — 8.19B Parameters
+
+| Configuration | Gradient Norm | Loss @ U100 | Status |
+|---|---|---|---|
+| Xavier (Scaled) | 0.14 | 9.69 | ❌ Stagnated |
+| DPI Pure | >6,000 | 7.50 | ⚠️ Unstable |
+| **S-DPI (Hybrid)** | **478.3** | **8.10** | ✅ Stable |
+
+S-DPI combines DPI geometric priors with 1/√(2L) depth-scaling for production-ready stability at billion-parameter scale.
+
+### 100,000-Step "Holy Grail" Marathon
+
+The DPI advantage does **not** erode over time:
+
+| Step | Xavier Loss | DPI Loss | Δ |
+|---|---|---|---|
+| 1,000 | 7.1103 | 5.7650 | −1.34 |
+| 50,000 | 3.8479 | 3.3640 | −0.48 |
+| 100,000 | 3.5129 | 3.0303 | −0.48 |
+
+DPI reached Xavier's final loss of 3.51 at step **36,954** — a **2.7x compute reduction** over the full training run.
+
+---
+
+## Variants
+
+| Variant | Description | Best For |
+|---|---|---|
+| `DPI v16.2` | Full pipeline with Zero-Wait Head | Small/medium scale, maximum early-step advantage |
+| `DPI-14.1` | Sequential Bootstrapping, no whitening, no calibration | General use — best balance of speed and stability |
+| `S-DPI` | DPI + 1/√(2L) depth scaling | Production training at 8B+ parameters |
+
+---
+
+## Installation
+
+```bash
+git clone https://github.com/your-org/dpi-init.git
+cd dpi-init
+pip install -r requirements.txt
+```
+
+**Requirements:** Python 3.10+, PyTorch 2.x, `numpy`, `scipy`, `bitsandbytes` (optional, for NF4 quantization)
+
+---
+
+## Usage
 
 ```python
 from model import Transformer
@@ -37,35 +136,54 @@ model = Transformer(...)
 initialize_dpi(model, sample_loader)
 ```
 
-## ⚠️ Integration Pitfalls (How to not sabotage DPI)
+### Key Configuration Parameters
 
-### 1. The Warmup Handicap
-DPI "pre-pays" the structural debt. Forcing a warmup prevents the model from utilizing its initial phase advantage. Use **0% to 0.5% warmup**.
+| Parameter | Recommended | Range | Notes |
+|---|---|---|---|
+| Zipfian warp (ζ) | 1.0 | [1.0, 1.4] | Robust — loss variance <0.015 across range |
+| Spectral gamma (γ₀) | 0.25 | [0.15, 0.50] | Avoid extremes; moderate compression preferred |
+| Morph alpha (α) | 0.45 | — | Controls QKV divergence rate with depth |
 
-### 2. Manifold Pollution (Excessive Jitter)
-Aggressive jitter (**>0.04**) sabotages the geometric priors. Keep jitter exactly at **0.02** for MLPs (the default).
+> **Note:** Only ~100 lines of corpus are needed for Phase 0 lexical seeding. The macroscopic geometry of language is captured almost instantly — you do not need to process the full training set.
 
-### 3. Tokenizer Mismatch (Critical)
-Always ensure the tokenizer used in `sample_loader` is identical to your training tokenizer.
+---
 
-## 🧠 Methodology
+## Theoretical Motivation
 
-DPI "pre-pays" the Structural Debt through:
-1.  **Lexical Seeding (Phase 0)**: Iterative SVD-based initialization of embeddings using domain-specific co-occurrence matrices.
-2.  **Phase-Shift Bootstrapping (Phase 2)**: Transition from an exploratory regime ($K \neq V$) to a consolidated regime ($K=V$) at model mid-depth.
-3.  **Zero-Wait Head (Phase 4)**: Lexical output head calibration using the inverse lexical manifold for immediate grammatical coherence.
+DPI is grounded in four observations from modern representation theory:
 
-## 📚 Citation
+1. **Neural Collapse** — Trained classifiers converge to rigid geometric structures (ETF), not diffuse clouds. Why not start there?
+2. **Heavy-Tailed Spectra** — Well-trained models exhibit power-law singular value distributions. DPI pre-installs this via Zipfian spectral warping.
+3. **Anisotropy of Language** — LLM representations live in a narrow cone of latent space. Isotropic stochastic init forces the optimizer to correct this directional misalignment first.
+4. **Intrinsic Dimensionality** — Representations follow a compression-expansion arc across layers. DPI's layer-by-layer spectral analysis mirrors this structure from step 1.
+
+Together, these motivate the **Structural Debt Hypothesis**: the gap between a random initial manifold and an optimal one represents wasted compute that DPI eliminates upfront.
+
+---
+
+## Limitations
+
+- Evaluated on **decoder-only Transformer** architectures only; encoder-decoder generalization is an open question.
+- Distributed training interaction (e.g., FSDP at 70B+) has not been characterized.
+- Long-run impact on models trained for trillions of tokens (100B+ scale) remains to be studied.
+- Experiments focus on **English-language corpora**; multilingual generalization is not validated.
+
+---
+
+## Citation
 
 ```bibtex
-@article{dpi2024,
-  title={Deterministic Pipeline Initialization (DPI) for LLMs: Accelerating Convergence via Geometric Priors},
-  author={Moltus AI},
-  journal={Research Square / arXiv},
-  year={2026},
-  url={./PAPER/DPI_Research_Paper.pdf}
+@article{dpi2026,
+  title     = {DPI: Deterministic Pipeline Initialization for Transformer Pre-Training Efficiency},
+  year      = {2026},
+  month     = {April},
+  note      = {Preprint}
 }
 ```
 
-## 📜 License
-MIT License
+---
+
+## License
+
+MIT License. See `LICENSE` for details.
+
