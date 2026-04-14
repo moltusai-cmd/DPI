@@ -97,18 +97,19 @@ While standard **muP (Maximal Update Parameterization)** solves the problem of *
 
 ### Intermediate Scale — 100M "Battle of the Manifolds" (ArXiv-BPE)
 
-In a definitive head-to-head duel at the 100M parameter scale (Llama-style, BS=64, 1.6B tokens), MuDPI v16.3 demonstrated absolute geometric dominance over the elite Xavier-muP baseline.
+In a definitive head-to-head duel at the 100M parameter scale (Llama-style, BS=64, 1.6B tokens), MuDPI v16.3 (Stable-Decay) demonstrated absolute geometric dominance over the elite Xavier-muP baseline.
 
-| Metric | Xavier-muP (2k warmup) | **MuDPI v16.3 (0 warmup)** | Advantage |
+| Metric | Xavier-muP (Standard) | **MuDPI v16.3 (Stable-Decay)** | Advantage |
 |---|---|---|---|
-| **Final Val Loss** | 3.7514 | **3.1967** | **-0.5547 pts** |
-| **Rank @ 0.1% Threshold** | 756 / 768 | **768 / 768** | **100% Integrity** |
-| **Dimensional Collapse** | -1.56% (12 dims lost) | **0.00% (Stable)** | **Eliminated** |
-| **Convergence Speedup** | 1.0x | **8.3x** | Reached final baseline loss at step 1200 |
+| **Final Val Loss** | 3.7512 | **3.1718** | **-0.5794 pts** |
+| **Final Train Loss** | 3.7634 | **2.9636** | **Sub-3.0 Barrier** |
+| **Rank @ 0.1% Threshold** | 756 / 768 | **765 / 768** | **99.6% Integrity** |
+| **Dimensional Collapse** | -1.56% (12 dims lost) | **-0.39% (3 dims lost)** | **Negligible** |
+| **Convergence Speedup** | 1.0x | **7.1x** | Reached final baseline loss at step 1400 |
 
 **Semantic Depth (Zero-Shot Generation at Step 10k):**
-- **MuDPI**: Successfully synthesized concepts (*"Dirac equation in the presence of a magnetic field"*) from the first step.
-- **Xavier**: Remained trapped in structural boilerplate (*"@xmath placeholders"*) and generic phrasing.
+- **MuDPI (Stable-Decay)**: Correctly synthesized the theoretical link between Einstein and the **Euler-Lagrange equations** (via Hilbert-Einstein action).
+- **Xavier**: Remained trapped in structural boilerplate and generic placeholder repetition.
 
 #### Testing Protocol: The Pareto-Optimal Arena
 To ensure a rigorous comparison, each initialization was pushed to its respective **Stability Limit ($LR_{crit}$)** identified via grid search:
