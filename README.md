@@ -2,9 +2,14 @@
 
 > **Faster, more stable LLM pre-training by replacing stochastic noise with data-aligned geometric priors.**
 
-[![Paper](https://img.shields.io/badge/paper-April%202026-blue)](.)
+[![Paper](https://img.shields.io/badge/paper-April%202026-blue)](PAPER/DPI_Research_Paper.pdf)
 [![Scale](https://img.shields.io/badge/validated-20M%20→%208.19B%20params-green)](.)
 [![License](https://img.shields.io/badge/license-MIT-orange)](.)
+
+---
+
+## 📄 Research Paper
+**[Read the full paper: "DPI: Deterministic Pipeline Initialization for Transformer Pre-Training Efficiency" (PDF)](PAPER/DPI_Research_Paper.pdf)**
 
 ---
 
@@ -16,10 +21,10 @@ Standard weight initialization methods (Xavier, Kaiming) treat the model as a bl
 
 Key results across scales from 20M to 8.19B parameters:
 
-- **Up to 10x step-wise speedup** over Xavier initialization at the 20M scale
-- **2.71x faster end-to-end** wall-clock time to reach the same validation loss
-- **Warmup-free training** at all tested scales, including 8.19B parameters
-- **Permanent advantage** — the efficiency gap does not close over 100,000 steps
+- **7.1x convergence speedup** over Xavier-muP at the 100M scale (Pareto-optimal benchmark)
+- **2.71x faster end-to-end** wall-clock time to reach target validation loss (RTX 5080)
+- **Warmup-free training** (0% warmup) at all tested scales, including 8.19B parameters
+- **Manifold Integrity**: Maintains 99.6% effective rank throughout training, preventing dimensional collapse.
 
 ---
 
