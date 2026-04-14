@@ -125,9 +125,9 @@ Standard muP initialization suffers from **Dimensional Collapse** during the ear
 
 ---
 
-### 100,000-Step "Holy Grail" Marathon
+### 100,000-Step Long-term Convergence Analysis
 
-The DPI advantage does **not** erode over time:
+The DPI advantage remains persistent across extended training durations:
 
 | Step | Xavier Loss | DPI Loss | Δ |
 |---|---|---|---|
