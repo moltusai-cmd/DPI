@@ -36,6 +36,7 @@ pandoc metadata_no_title.yaml \
     sections/07_appendix.md \
     sections/08_appendix_holy_grail.md \
     sections/09_appendix_conductivity.md \
+    sections/10_appendix_sprint_5k.md \
     sections/06_references.md \
     \
     --toc \

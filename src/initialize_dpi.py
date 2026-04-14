@@ -92,11 +92,16 @@ def initialize_dpi(model, dataloader, spectral_gamma=0.25, use_calibration=True,
         # Residual Stability Factor
         res_scale = 1.0 / math.sqrt(2 * n_layers)
         
-        # 1. MLP Init
+        # 1. MLP Init (SwiGLU compatible)
         W1 = getattr(mlp, 'W1', None) or getattr(mlp, 'fc1', None)
+        W_gate = getattr(mlp, 'W_gate', None)
         W2 = getattr(mlp, 'W2', None) or getattr(mlp, 'fc2', None)
+        
         mlp_basis = svd_basis.repeat(W1.out_features // model.d_model, 1)
         W1.weight.data = spectral_normalize(mlp_basis + torch.randn_like(mlp_basis) * mlp_jitter, target_sigma=1.0)
+        if W_gate is not None:
+            W_gate.weight.data = spectral_normalize(mlp_basis + torch.randn_like(mlp_basis) * mlp_jitter, target_sigma=1.0)
+        
         # Scale W2 for residual stability
         W2.weight.data = spectral_normalize(svd_basis.t().repeat(1, W1.out_features // model.d_model), target_sigma=res_scale)
 

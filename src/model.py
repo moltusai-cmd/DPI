@@ -4,6 +4,9 @@ import math
 import mup
 from torch.utils.checkpoint import checkpoint
 
+def count_parameters(model):
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)
+
 class RotaryEmbedding(nn.Module):
     def __init__(self, dim, max_len=5000):
         super().__init__()
@@ -79,20 +82,44 @@ class MLP(nn.Module):
     def forward(self, x):
         return self.dropout(self.W2(self.act(self.W1(x))))
 
-class TransformerBlock(nn.Module):
-    def __init__(self, d_model, n_heads, d_mlp, dropout=0.1, use_mup_attn=False):
+class RMSNorm(nn.Module):
+    def __init__(self, dim, eps=1e-6):
         super().__init__()
-        self.ln1 = nn.LayerNorm(d_model)
+        self.eps = eps
+        self.weight = nn.Parameter(torch.ones(dim))
+    def forward(self, x):
+        norm_x = torch.mean(x**2, dim=-1, keepdim=True)
+        x_normed = x * torch.rsqrt(norm_x + self.eps)
+        return self.weight * x_normed
+
+class SwiGLUMLP(nn.Module):
+    def __init__(self, d_model, d_mlp, dropout=0.1):
+        super().__init__()
+        self.W1 = nn.Linear(d_model, d_mlp, bias=False)
+        self.W_gate = nn.Linear(d_model, d_mlp, bias=False)
+        self.W2 = nn.Linear(d_mlp, d_model, bias=False)
+        self.dropout = nn.Dropout(dropout)
+    def forward(self, x):
+        gate = torch.nn.functional.silu(self.W_gate(x))
+        return self.dropout(self.W2(gate * self.W1(x)))
+
+class TransformerBlock(nn.Module):
+    def __init__(self, d_model, n_heads, d_mlp, dropout=0.1, use_mup_attn=False, use_rmsnorm=True, use_swiglu=True):
+        super().__init__()
+        self.ln1 = RMSNorm(d_model) if use_rmsnorm else nn.LayerNorm(d_model)
         self.attn = MultiHeadAttention(d_model, n_heads, dropout, use_mup_attn=use_mup_attn)
-        self.ln2 = nn.LayerNorm(d_model)
-        self.mlp = MLP(d_model, d_mlp, dropout)
+        self.ln2 = RMSNorm(d_model) if use_rmsnorm else nn.LayerNorm(d_model)
+        if use_swiglu:
+            self.mlp = SwiGLUMLP(d_model, d_mlp, dropout)
+        else:
+            self.mlp = MLP(d_model, d_mlp, dropout)
     def forward(self, x, rope=None):
         x = x + self.attn(self.ln1(x), rope=rope)
         x = x + self.mlp(self.ln2(x))
         return x
 
 class PID8Transformer(nn.Module):
-    def __init__(self, vocab_size=16384, d_model=320, n_heads=5, d_mlp=1280, n_layers=8, max_len=512, dropout=0.1, use_rope=True, use_mup_attn=False, use_mup_readout=False):
+    def __init__(self, vocab_size=16384, d_model=320, n_heads=5, d_mlp=1280, n_layers=8, max_len=512, dropout=0.1, use_rope=True, use_mup_attn=False, use_mup_readout=False, use_rmsnorm=True, use_swiglu=True):
         super().__init__()
         self.d_model = d_model
         self.embedding = nn.Embedding(vocab_size, d_model)
@@ -103,22 +130,23 @@ class PID8Transformer(nn.Module):
             self.rope = RotaryEmbedding(d_model // n_heads, max_len)
             self.pos_encoding = nn.Identity() 
         else:
-            self.pos_encoding = nn.Identity() # Simplification
+            self.pos_encoding = nn.Identity()
             self.rope = None
         self.dropout = nn.Dropout(dropout)
         self.layers = nn.ModuleList([
-            TransformerBlock(d_model, n_heads, d_mlp, dropout, use_mup_attn=use_mup_attn) for _ in range(n_layers)
+            TransformerBlock(d_model, n_heads, d_mlp, dropout, use_mup_attn=use_mup_attn, use_rmsnorm=use_rmsnorm, use_swiglu=use_swiglu) for _ in range(n_layers)
         ])
-        self.ln_f = nn.LayerNorm(d_model)
-        # Official muP Readout (always used for shape compatibility)
+        self.ln_f = RMSNorm(d_model) if use_rmsnorm else nn.LayerNorm(d_model)
         self.unembed = mup.MuReadout(d_model, vocab_size, bias=False)
         self.gradient_checkpointing = False
 
     def forward(self, x):
         x = self.dropout(self.embedding(x))
         for layer in self.layers:
-            x = layer(x, rope=self.rope)
+            if self.gradient_checkpointing and self.training:
+                x = checkpoint(layer, x, self.rope, use_reentrant=False)
+            else:
+                x = layer(x, rope=self.rope)
         x = self.ln_f(x)
         logits = self.unembed(x)
-        # NO MANUAL COMPENSATION - We want the official muP behavior
         return logits

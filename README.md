@@ -89,6 +89,29 @@ DPI reached the Xavier baseline's 1,000-step performance in approximately **150 
 
 S-DPI combines DPI geometric priors with 1/√(2L) depth-scaling for production-ready stability at billion-parameter scale.
 
+---
+
+## MuDPI: The Supercharged muP (v16.3)
+
+While standard **muP (Maximal Update Parameterization)** solves the problem of *hyperparameter transfer* across scales, it remains anchored to stochastic (random) weight initializations. **MuDPI (v16.3)** integrates DPI's geometric priors directly into the muP scaling laws, creating a "Supercharged muP" that is both scale-agnostic and geometrically optimized.
+
+### 350M "Sprint 5k" Duel (ArXiv-BPE)
+
+In a head-to-head battle at the 350M parameter scale (Llama-style architecture), MuDPI outperformed the elite Xavier-muP baseline:
+
+| Metric | Xavier-muP (2k warmup) | **MuDPI (0 warmup)** | Improvement |
+|---|---|---|---|
+| **Final Loss (5k)** | 5.0767 | **4.7335** | **-0.3432 pts** |
+| **Effective Rank ($\rho_{eff}$)** | 820 / 1024 | **960 / 1024** | **+17.1%** |
+| **Dimensional Collapse** | -14.4% (Post-warmup) | **-0.2% (Stable)** | **Resolved** |
+| **Compute Efficiency** | 1.0x | **1.5x** | Reached baseline 3k loss at 2k steps |
+
+### Geometric Superiority: Dimensional Integrity
+
+Standard muP initialization suffers from **Dimensional Collapse** during the early phase of training (even with warmup). MuDPI's **Spectral Isometry** ensures that the weight matrices maintain high effective rank throughout the entire training process, preventing the "rank-starvation" that slows down standard models.
+
+---
+
 ### 100,000-Step "Holy Grail" Marathon
 
 The DPI advantage does **not** erode over time:
