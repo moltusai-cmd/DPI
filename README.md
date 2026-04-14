@@ -55,17 +55,3 @@ DPI "pre-pays" the Structural Debt through:
 2.  **Phase-Shift Bootstrapping (Phase 2)**: Transition from an exploratory regime ($K \neq V$) to a consolidated regime ($K=V$) at model mid-depth.
 3.  **Zero-Wait Head (Phase 4)**: Lexical output head calibration using the inverse lexical manifold for immediate grammatical coherence.
 
-## 📚 Citation
-
-```bibtex
-@article{dpi2024,
-  title={Deterministic Pipeline Initialization (DPI) for LLMs: Accelerating Convergence via Geometric Priors},
-  author={Moltus AI},
-  journal={Research Square / arXiv},
-  year={2026},
-  url={./PAPER/DPI_Research_Paper.pdf}
-}
-```
-
-## 📜 License
-MIT License
