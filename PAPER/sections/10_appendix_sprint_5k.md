@@ -1,10 +1,10 @@
-# Appendix X: The "Battle of the Manifolds" (100M Class)
+# Appendix X: Comparative Analysis at Scale (100M Class)
 
-This appendix documents the definitive "Pareto-Optimal Duel" between MuDPI v16.3 and the elite Microsoft muP-Xavier baseline. The experiment tested the "Stable-Decay" scheduler strategy, pushing both initializations to their respective stability limits ($LR_{crit}$) to identify the true efficiency delta of geometric alignment.
+This appendix documents a standardized performance evaluation between MuDPI v16.3 and the muP-Xavier baseline. The goal was to characterize the convergence efficiency of geometric alignment under optimal learning rate configurations ($LR_{crit}$) identified via empirical grid search.
 
 ## X.1 Experimental Configuration
 
-The benchmark utilized a state-of-the-art Llama-style transformer architecture optimized for modern hardware (RTX 5080).
+The benchmark utilized a state-of-the-art Llama-style transformer architecture optimized for hardware efficiency.
 
 | Parameter | Configuration |
 | :--- | :--- |
@@ -15,13 +15,15 @@ The benchmark utilized a state-of-the-art Llama-style transformer architecture o
 | Precision | BF16 Mixed Precision (torch.amp) |
 | Rank Threshold | $10^{-3}$ (0.1% of max singular value) |
 
-## X.2 Protocol Definition: The Stability Limit
+## X.2 Baseline and Protocol Definition
 
-Prior to the final run, a grid search identified the maximum stable learning rate ($LR_{crit}$) for each method:
-*   **Xavier-muP:** Max stable $LR = 2 \cdot 10^{-4}$ (with 2,000 steps linear warmup and cosine decay).
-*   **MuDPI v16.3:** Max stable $LR = 8 \cdot 10^{-4}$ (with **Stable-Decay** : 8,000 steps at 100% power, 2,000 steps cosine decay).
+To ensure a rigorous comparison, each initialization was evaluated at its respective stability limit:
+*   **Xavier-muP:** $LR = 2 \cdot 10^{-4}$ (with 2,000 steps linear warmup and cosine decay).
+*   **MuDPI v16.3:** $LR = 8 \cdot 10^{-4}$ (with **Stable-Decay** : 8,000 steps at 100% power, 2,000 steps cosine decay).
 
-## X.3 Empirical Results (The "Money Log")
+This differential loading ensures that both methods are compared at their maximum stable operational capacity.
+
+## X.3 Empirical Results: Convergence Rates
 
 Measurements were taken on an independent validation set (mean of 50 batches).
 
@@ -34,15 +36,13 @@ Measurements were taken on an independent validation set (mean of 50 batches).
 | 8000 (Pre-Decay) | 3.7677 | 756 | 3.2660 | 765 | -0.5017 |
 | 10000 (Final) | 3.7512 | 756 | **3.1718** | **765** | **-0.5794** |
 
-## X.4 Semantic Validation: The Euler-Lagrange Breakthrough
+## X.4 Qualitative Analysis: Feature Mapping Fidelity
 
 At step 10,000, both models were submitted to the prompt: *"The derivation of the Einstein field equations starts from..."*
 
-*   **MuDPI Result:** *"The derivation of the Einstein field equations starts from the **derivation of the euler-lagrange equations**."*
-    *   *Observation:* MuDPI successfully identified the foundational link to the Hilbert-Einstein action.
-*   **Xavier Result:** *"The derivation of the Einstein field equations starts from the **standard model (@xmath0)**."*
-    *   *Observation:* Xavier reclined into structural noise and generic placeholder repetition.
+*   **MuDPI Result:** Successfully identified the foundational link to the **Euler-Lagrange equations**, mirroring the Hilbert-Einstein action derivation found in the training corpus.
+*   **Xavier Result:** Utilized generic terminology ("standard model", "numerical simulations"), suggesting a lower density of specialized information mapping within the constrained parameter space.
 
-## X.5 Conclusion: The 7.1x Efficiency Gap
+## X.5 Conclusion: Computational Efficiency Delta
 
-MuDPI v16.3 (Stable-Decay) reached the Xavier baseline's final validation loss (3.75) at approximately **step 1400**. This represents a **7.1x speedup in training efficiency** while breaking the sub-3.0 training loss barrier (2.9636).
+MuDPI v16.3 reached the baseline final validation loss (3.75) at approximately **step 1400**. This represents a **7.1x speedup in training efficiency**. The higher rank preservation (765 vs 756) under high learning rate conditions indicates that geometric alignment enhances the model's capacity to absorb information during the initial training phase.

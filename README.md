@@ -91,28 +91,28 @@ S-DPI combines DPI geometric priors with 1/√(2L) depth-scaling for production-
 
 ---
 
-## MuDPI: The Supercharged muP (v16.3)
+## MuDPI: Geometrically Augmented muP (v16.3)
 
-While standard **muP (Maximal Update Parameterization)** solves the problem of *hyperparameter transfer* across scales, it remains anchored to stochastic (random) weight initializations. **MuDPI (v16.3)** integrates DPI's geometric priors directly into the muP scaling laws, creating a "Supercharged muP" that is both scale-agnostic and geometrically optimized.
+While standard **muP (Maximal Update Parameterization)** solves the problem of *hyperparameter transfer* across scales, it remains anchored to stochastic (random) weight initializations. **MuDPI (v16.3)** integrates DPI's geometric priors directly into the muP scaling laws, creating a framework that is both scale-agnostic and geometrically optimized.
 
-### Intermediate Scale — 100M "Battle of the Manifolds" (ArXiv-BPE)
+### Intermediate Scale — 100M Comparative Analysis (ArXiv-BPE)
 
-In a definitive head-to-head duel at the 100M parameter scale (Llama-style, BS=64, 1.6B tokens), MuDPI v16.3 (Stable-Decay) demonstrated absolute geometric dominance over the elite Xavier-muP baseline.
+In a standardized head-to-head evaluation at the 100M parameter scale (Llama-style, BS=64, 1.6B tokens), MuDPI v16.3 (Stable-Decay) demonstrated superior geometric stability compared to the muP-Xavier baseline.
 
-| Metric | Xavier-muP (Standard) | **MuDPI v16.3 (Stable-Decay)** | Advantage |
+| Metric | Xavier-muP (Standard) | **MuDPI v16.3 (Stable-Decay)** | Δ / Advantage |
 |---|---|---|---|
 | **Final Val Loss** | 3.7512 | **3.1718** | **-0.5794 pts** |
-| **Final Train Loss** | 3.7634 | **2.9636** | **Sub-3.0 Barrier** |
+| **Final Train Loss** | 3.7634 | **2.9636** | **Sub-3.0 Convergence** |
 | **Rank @ 0.1% Threshold** | 756 / 768 | **765 / 768** | **99.6% Integrity** |
-| **Dimensional Collapse** | -1.56% (12 dims lost) | **-0.39% (3 dims lost)** | **Negligible** |
-| **Convergence Speedup** | 1.0x | **7.1x** | Reached final baseline loss at step 1400 |
+| **Dimensional Collapse** | -1.56% (12 dims lost) | **-0.39% (3 dims lost)** | **Minimal** |
+| **Convergence Speedup** | 1.0x | **7.1x** | Baseline final loss reached at step 1400 |
 
-**Semantic Depth (Zero-Shot Generation at Step 10k):**
+**Semantic Mapping Fidelity (Zero-Shot Recall at Step 10k):**
 - **MuDPI (Stable-Decay)**: Successfully synthesized the foundational link between Einstein and the **Euler-Lagrange equations** (via Hilbert-Einstein action).
-- **Xavier**: Remained trapped in structural boilerplate (@xmath) and generic placeholder repetition.
+- **Xavier**: Remained trapped in low-level structural noise (@xmath) and generic placeholder repetition.
 
-#### Testing Protocol: The Pareto-Optimal Arena
-To ensure a rigorous comparison, each initialization was pushed to its respective **Stability Limit ($LR_{crit}$)** identified via grid search:
+#### Benchmark Protocol: Pareto-Optimal Comparison
+To ensure a rigorous evaluation, each initialization was tested at its respective **Stability Limit ($LR_{crit}$)**:
 - **Architecture**: 100M parameters (d=768, L=12, H=12). SwiGLU + RMSNorm + RoPE.
 - **Data Density**: Batch Size 64 (163,840 tokens/step). Total 1.6 Billion tokens.
 - **Optimization**: muP-AdamW. MuDPI at **$8 \cdot 10^{-4}$** (0 warmup) vs. Xavier at **$2 \cdot 10^{-4}$** (2k linear warmup).
