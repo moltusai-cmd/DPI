@@ -8,6 +8,23 @@
 
 ---
 
+## 🚀 Quick Start: One-Click Benchmark
+
+You can reproduce the DPI v16.2 advantage on your own hardware (CPU or NVIDIA GPU) with a single command. This benchmark compares 8 different configurations (4 initializations × 2 scheduler regimes) using real text data.
+
+```bash
+# Clone and enter the repository
+git clone https://github.com/your-org/dpi-init.git
+cd dpi-init
+
+# Run the automated benchmark
+python3 benchmark_dpi.py
+```
+
+*The script automatically handles data loading (Hugging Face WikiText or built-in TinyCorpus) and hardware detection.*
+
+---
+
 ## 📄 Research Paper
 **[Read the full paper: "DPI: Deterministic Pipeline Initialization for Transformer Pre-Training Efficiency" (PDF)](PAPER/DPI_Research_Paper.pdf)**
 
