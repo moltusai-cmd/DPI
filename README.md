@@ -14,7 +14,7 @@ You can reproduce the DPI v16.2 advantage on your own hardware (CPU or NVIDIA GP
 
 ```bash
 # Clone and enter the repository
-git clone https://github.com/your-org/dpi-init.git
+git clone https://github.com/moltusai-cmd/DPI.git
 cd dpi-init
 
 # Run the automated benchmark
@@ -190,7 +190,7 @@ DPI reached Xavier's final loss of 3.51 at step **36,954** — a **2.7x compute 
 ## Installation
 
 ```bash
-git clone https://github.com/your-org/dpi-init.git
+git clone https://github.com/moltusai-cmd/DPI.git
 cd dpi-init
 pip install -r requirements.txt
 ```
