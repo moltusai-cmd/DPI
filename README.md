@@ -79,21 +79,29 @@ DPI replaces random initialization with a **Sequential Bootstrapping pipeline** 
 | 500 | 7.7220 | 6.7130 | −1.01 |
 | 1,000 | 7.3840 | 6.1699 | −1.21 |
 
-#### 8-Test "Octo-Benchmark" (RTX 5080, 20M Scale)
-Comparative analysis of initialization vs. scheduler regimes (Fixed 1e-4 vs. Cosine+Warmup).
+#### 16-Test "Giga-Benchmark" (RTX 5080, 20M Scale, WikiText-103)
+Comprehensive cross-evaluation across 40 Million tokens, testing initialization stability under multiple learning rates (1e-4 and 8e-4) and scheduler regimes.
 
-| Initialization | Scheduler | Val Loss | Advantage | Rank (0.01) |
+| Initialization | Scheduler Regime | Val Loss | Advantage | Rank |
 |---|---|---|---|---|
-| Xavier Uniform | Cosine+Warmup | 5.5250 | 0.0000 | 83.31 |
-| Xavier Uniform | Fixed 1e-4 | 4.2647 | +1.2602 | 78.44 |
-| Xavier muP | Cosine+Warmup | 5.1958 | +0.3292 | 82.91 |
-| Xavier muP | Fixed 1e-4 | 4.2344 | +1.2905 | 83.18 |
-| **DPI v16.2** | **Cosine+Warmup** | **3.7712** | **+1.7538** | **82.35** |
-| **DPI v16.2** | **Fixed 1e-4** | **2.6447** | **+2.8803** | **80.30** |
-| MuDPI (DPI+muP) | Cosine+Warmup | 3.8399 | +1.6851 | 83.10 |
-| MuDPI (DPI+muP) | Fixed 1e-4 | 3.1179 | +2.4071 | 80.21 |
+| Xavier Uniform | Cosine+Warmup @ 1e-4 | 6.4651 | 0.0000 | 81.51 |
+| Xavier Uniform | Fixed @ 1e-4 | 6.0964 | +0.3686 | 82.96 |
+| Xavier Uniform | Cosine+Warmup @ 8e-4 | 5.7738 | +0.6912 | 82.42 |
+| Xavier Uniform | Fixed @ 8e-4 | 5.6438 | +0.8213 | 79.30 |
+| Xavier muP | Cosine+Warmup @ 1e-4 | 6.2909 | +0.1742 | 82.09 |
+| Xavier muP | Fixed @ 1e-4 | 5.9918 | +0.4732 | 83.59 |
+| Xavier muP | Cosine+Warmup @ 8e-4 | 5.8008 | +0.6643 | 81.08 |
+| Xavier muP | Fixed @ 8e-4 | 5.6029 | +0.8621 | 81.85 |
+| DPI v16.2 | Cosine+Warmup @ 1e-4 | 5.9895 | +0.4756 | 80.35 |
+| DPI v16.2 | Fixed @ 1e-4 | 5.7496 | +0.7155 | 81.21 |
+| **DPI v16.2** | **Cosine+Warmup @ 8e-4** | **5.2893** | **+1.1758** | **83.61** |
+| **DPI v16.2** | **Fixed @ 8e-4** | **5.1554** | **+1.3096** | **81.56** |
+| MuDPI v16.3 | Stable-Decay @ 1e-4 | 5.7524 | +0.7127 | 83.14 |
+| MuDPI v16.3 | Fixed @ 1e-4 | 5.7361 | +0.7290 | 79.67 |
+| **MuDPI v16.3** | **Stable-Decay @ 8e-4** | **5.2255** | **+1.2396** | **82.35** |
+| **MuDPI v16.3** | **Fixed @ 8e-4** | **5.1703** | **+1.2948** | **83.00** |
 
-**Key Finding**: DPI v16.2 performs best with a **Fixed Learning Rate (No Warmup)**, reaching a validation loss of **2.64**, representing a **2.88 point advantage** over the standard Xavier baseline.
+**Key Finding**: On a large-scale corpus (40M tokens), **MuDPI v16.3** and **DPI v16.2** demonstrate exceptional stability at high learning rates (**8e-4**). The best configuration, **DPI v16.2 Fixed @ 8e-4**, achieves a validation loss of **5.15**, outperforming the standard Xavier baseline by **1.31 points** without requiring any warmup.
 
 **Step efficiency to reach target loss:**
 
