@@ -1,88 +1,47 @@
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, Dataset
-import sys
-import os
 import time
 import math
-import copy
-import json
-import argparse
-import mup
 import numpy as np
 import random
+import sys
+import os
+import mup
 
-# Add src to path for imports
+# Add src to path
 sys.path.append('src')
-from model import PID8Transformer, count_parameters
+from model import PID8Transformer
 from initialize_dpi import initialize_dpi
 from optimizer import DPISpectralOptimizer
 
 class SimpleBPETokenizer:
     def __init__(self, vocab_size=16384):
         self.vocab_size = vocab_size
-        self.inv_vocab = {} # Mapping from hash to a sample word
-    def encode(self, text, target_count=None):
+        self.inv_vocab = {}
+    def encode(self, text):
         tokens = []
         for word in text.split():
             h = 0
             for char in word: h = (h * 31 + ord(char)) % self.vocab_size
             tokens.append(h)
-            if h not in self.inv_vocab: self.inv_vocab[h] = word # Keep a representative
-            if target_count and len(tokens) >= target_count: break
+            if h not in self.inv_vocab: self.inv_vocab[h] = word
         return tokens
-
-def generate_inference(model, tokenizer, prompt, device, max_len=15):
-    model.eval()
-    tokens = tokenizer.encode(prompt)
-    input_ids = torch.tensor([tokens], dtype=torch.long).to(device)
-    generated = list(tokens)
-
-    with torch.no_grad():
-        for _ in range(max_len):
-            logits = model(input_ids[:, -128:])
-            next_token = torch.argmax(logits[0, -1, :]).item()
-            generated.append(next_token)
-            input_ids = torch.cat([input_ids, torch.tensor([[next_token]], device=device)], dim=1)
-
-    return " ".join([tokenizer.inv_vocab.get(t, f"[{t}]") for t in generated])
+    def decode(self, token_ids):
+        return " ".join([self.inv_vocab.get(tid, f"[{tid}]") for tid in token_ids])
 
 class RobustDataset(Dataset):
-    def __init__(self, split="train", vocab_size=16384, seq_len=128, target_tokens=1_000_000, noise_prob=0.0):
-        self.vocab_size = vocab_size
-        self.seq_len = seq_len
+    def __init__(self, split="train", target_tokens=1_000_000, noise_prob=0.0):
+        self.seq_len = 128
         self.noise_prob = noise_prob
-        self.tokenizer = SimpleBPETokenizer(vocab_size)
-        cache_path = f"results/tokens_cache_{split}_{target_tokens}.pt"
-        if os.path.exists(cache_path):
-            self.tokens = torch.load(cache_path)
-            # Comprehensive scan to populate inv_vocab for readable inference
-            # We don't have the raw text here, but we can't easily reverse the hash.
-            # FIX: We'll re-run a small part of the tokenizer on the first few entries of WikiText
-            try:
-                from datasets import load_dataset
-                sample_data = load_dataset("wikitext", "wikitext-103-raw-v1", split=split, streaming=True)
-                count = 0
-                for entry in sample_data:
-                    self.tokenizer.encode(entry["text"])
-                    count += 1
-                    if count > 500: break # Scan 500 lines to fill the dictionary
-            except: pass
-        else:
-            print(f"📦 Tokenizing {split} split...")
-            try:
-                from datasets import load_dataset
-                dataset = load_dataset("wikitext", "wikitext-103-raw-v1", split=split, streaming=True)
-                all_tokens = []
-                for entry in dataset:
-                    all_tokens.extend(self.tokenizer.encode(entry["text"]))
-                    if len(all_tokens) >= target_tokens: break
-                self.tokens = torch.tensor(all_tokens[:target_tokens], dtype=torch.long)
-                os.makedirs("results", exist_ok=True)
-                torch.save(self.tokens, cache_path)
-            except Exception as e:
-                print(f"❌ CRITICAL ERROR: Could not load WikiText-103 split '{split}'. Reason: {e}")
-                sys.exit(1)
+        self.tokenizer = SimpleBPETokenizer(16384)
+        from datasets import load_dataset
+        dataset = load_dataset("wikitext", "wikitext-103-raw-v1", split=split, streaming=True)
+        all_tokens = []
+        for entry in dataset:
+            all_tokens.extend(self.tokenizer.encode(entry["text"]))
+            if len(all_tokens) >= target_tokens: break
+        self.tokens = torch.tensor(all_tokens[:target_tokens], dtype=torch.long)
     def __len__(self): return len(self.tokens) // self.seq_len - 1
     def __getitem__(self, idx):
         start = idx * self.seq_len
@@ -90,34 +49,38 @@ class RobustDataset(Dataset):
         y = self.tokens[start + 1 : start + self.seq_len + 1].clone()
         if self.noise_prob > 0:
             mask = torch.rand(x.shape) < self.noise_prob
-            x[mask] = torch.randint(0, self.vocab_size, (mask.sum(),), dtype=torch.long)
+            x[mask] = torch.randint(0, 16384, (mask.sum(),))
         return x, y
 
 def calculate_stable_rank(model, threshold=0.01):
+    model.eval()
     with torch.no_grad():
         W = model.layers[3].attn.W_q.weight.data
         _, S, _ = torch.svd(W)
         S_filtered = S[S > (threshold * S[0])]
         return (torch.sum(S_filtered**2) / (S[0]**2)).item()
 
-def train_model(name, model, loader, val_loader, device, total_steps=2000, lr=1e-3, sched_type="Cosine", opt_type="AdamW"):
+def train_model(name, model, loader, val_loader, device, total_steps=2000, lr=8e-4, sched_type="Cosine", opt_type="AdamW"):
     model.train()
     if opt_type == "DSO":
         optimizer = DPISpectralOptimizer(model.parameters(), lr=lr, weight_decay=0.01, anchor_factor=0.42)
+    elif opt_type == "MuAdamW":
+        optimizer = mup.MuAdamW(model.parameters(), lr=lr, weight_decay=0.01)
     else:
         optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=0.01)
     
     warmup_steps = 0
     def lr_lambda(step):
         if step < warmup_steps: return float(step) / float(max(1, warmup_steps))
+        if sched_type == "Fixed": return 1.0
         progress = step / total_steps
         return 0.5 * (1.0 + math.cos(math.pi * progress))
     scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
     criterion = nn.CrossEntropyLoss()
     
     steps = 0
-    rank_at_5_4 = None
-    steps_at_5_4 = None
+    rank_at_5_5 = None
+    steps_at_5_5 = None
     
     while steps < total_steps:
         for x, y in loader:
@@ -142,10 +105,10 @@ def train_model(name, model, loader, val_loader, device, total_steps=2000, lr=1e
                         vl = model(vx)
                         v_loss += criterion(vl.view(-1, vl.size(-1)), vy.view(-1)).item()
                 current_v_loss = v_loss / (len(val_loader) // 4 + 1)
-                if current_v_loss <= 5.4 and rank_at_5_4 is None:
-                    rank_at_5_4 = calculate_stable_rank(model)
-                    steps_at_5_4 = steps
-                    print(f"  [PARITY HIT] {name} reached 5.4 at step {steps} | Rank: {rank_at_5_4:.2f}")
+                if current_v_loss <= 5.5 and rank_at_5_5 is None:
+                    rank_at_5_5 = calculate_stable_rank(model)
+                    steps_at_5_5 = steps
+                    print(f"  [PARITY HIT] {name} reached 5.5 at step {steps} | Rank: {rank_at_5_5:.2f}")
                 model.train()
 
     val_loss = 0
@@ -155,7 +118,19 @@ def train_model(name, model, loader, val_loader, device, total_steps=2000, lr=1e
             x, y = x.to(device), y.to(device)
             logits = model(x)
             val_loss += criterion(logits.view(-1, logits.size(-1)), y.view(-1)).item()
-    return val_loss / len(val_loader), rank_at_5_4, steps_at_5_4
+    return val_loss / len(val_loader), rank_at_5_5, steps_at_5_5
+
+def generate_inference(model, tokenizer, prompt, device, max_len=30):
+    model.eval()
+    tokens = tokenizer.encode(prompt)
+    input_ids = torch.tensor([tokens], device=device)
+    with torch.no_grad():
+        for _ in range(max_len):
+            logits = model(input_ids)
+            next_token = torch.argmax(logits[:, -1, :], dim=-1).unsqueeze(0)
+            input_ids = torch.cat([input_ids, next_token], dim=1)
+    # Simple decoder approximation
+    return tokenizer.decode(input_ids[0].cpu().numpy())
 
 def main():
     seed = 42
@@ -168,8 +143,7 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     vocab_size, seq_len = 16384, 128
     
-    noise_level = 0.0
-    train_dataset = RobustDataset(split="train", target_tokens=40_000_000, noise_prob=noise_level)
+    train_dataset = RobustDataset(split="train", target_tokens=40_000_000, noise_prob=0.0)
     val_dataset = RobustDataset(split="validation", target_tokens=1_000_000, noise_prob=0.0)
     train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=64)
@@ -178,13 +152,13 @@ def main():
     base_cfg = dict(vocab_size=vocab_size, d_model=64, n_heads=4, d_mlp=256, n_layers=6, max_len=seq_len, use_mup_attn=True, use_mup_readout=True)
     base_model = PID8Transformer(**base_cfg).to(device)
     
-    print(f"Giga-Benchmark: (DPI+DSO vs muP) | Seed: {seed} | Parity Target: 5.4 | Device: {device}")
+    print(f"Giga-Benchmark: (DPI+DSO vs muP) | Seed: {seed} | Parity Target: 5.5 | Device: {device}")
     all_results = []
 
     for init_name in ["DPI v17.0 + DSO v1.4", "Xavier Uniform", "True muP (MS)", "DPI v17.0 (Static)"]:
-        for lr in [8e-4]:
-            for sched in ["Cosine"]:
-                print(f"Running {init_name}...")
+        for lr in [1e-4, 8e-4]:
+            for sched in ["Cosine", "Fixed"]:
+                print(f"Running {init_name} | {sched} @ {lr}...")
                 m = PID8Transformer(**cfg).to(device)
                 mup.set_base_shapes(m, base_model)
                 start_init = time.time()
@@ -201,8 +175,11 @@ def main():
                 rank_before = calculate_stable_rank(m)
                 
                 start_train = time.time()
-                opt_type = "DSO" if "DSO" in init_name else "AdamW"
-                loss, r_54, s_54 = train_model(init_name, m, train_loader, val_loader, device, lr=lr, sched_type=sched, opt_type=opt_type)
+                if "DSO" in init_name: opt_type = "DSO"
+                elif "muP" in init_name: opt_type = "MuAdamW"
+                else: opt_type = "AdamW"
+                
+                loss, r_5_5, s_5_5 = train_model(init_name, m, train_loader, val_loader, device, lr=lr, sched_type=sched, opt_type=opt_type)
                 train_time = time.time() - start_train
                 rank_after = calculate_stable_rank(m)
 
@@ -212,16 +189,15 @@ def main():
                     gen = generate_inference(m, train_dataset.tokenizer, p, device)
                     print(f"    - '{p}': {gen}")
                 
-                all_results.append((init_name, f"{sched} @ {lr}", loss, rank_before, rank_after, r_54, s_54, train_time))
-                print(f"  [RESULT] Loss: {loss:.4f} | Rank Post: {rank_after:.2f} | Rank@5.4: {r_54 if r_54 else 'N/A'}")
+                all_results.append((init_name, f"{sched} @ {lr}", loss, rank_before, rank_after, r_5_5, s_5_5, train_time))
+                print(f"  [RESULT] Loss: {loss:.4f} | Rank Post: {rank_after:.2f} | Rank@5.5: {r_5_5 if r_5_5 else 'N/A'}")
                 print(f"{'-'*120}")
 
     print(f"\n{'='*155}")
-    print(f"{'Initialization':<20} | {'Regime':<18} | {'Val Loss':<10} | {'Rank Pre':<10} | {'Rank Post':<10} | {'Rank@5.4':<12} | {'Steps@5.4':<10} | {'Train(s)'}")
+    print(f"{'Initialization':<20} | {'Regime':<18} | {'Val Loss':<10} | {'Rank Pre':<10} | {'Rank Post':<10} | {'Rank@5.5':<12} | {'Steps@5.5':<10} | {'Train(s)'}")
     print(f"{'-'*155}")
-    for name, sched, loss, r_pre, r_post, r_54, s_54, t_train in all_results:
-        print(f"{name:<20} | {sched:<18} | {loss:<10.4f} | {r_pre:<10.2f} | {r_post:<10.2f} | {f'{r_54:.2f}' if r_54 else 'N/A':<12} | {f'{s_54}' if s_54 else 'N/A':<10} | {t_train:<8.1f}")
-    print(f"{'='*155}")
+    for name, sched, loss, r_pre, r_post, r_5_5, s_5_5, t_train in all_results:
+        print(f"{name:<20} | {sched:<18} | {loss:<10.4f} | {r_pre:<10.2f} | {r_post:<10.2f} | {f'{r_5_5:.2f}' if r_5_5 else 'N/A':<12} | {f'{s_5_5}' if s_5_5 else 'N/A':<10} | {t_train:<8.1f}")
 
 if __name__ == "__main__":
     main()
