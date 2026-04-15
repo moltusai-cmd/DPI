@@ -67,7 +67,7 @@ def calculate_stable_rank(model, threshold=0.01):
         S_filtered = S[S > (threshold * S[0])]
         return (torch.sum(S_filtered**2) / (S[0]**2)).item()
 
-def train_model(name, model, loader, val_loader, device, total_steps=1000, lr=1e-4, sched_type="Cosine", use_mup=False):
+def train_model(name, model, loader, val_loader, device, total_steps=2000, lr=1e-4, sched_type="Cosine", use_mup=False):
     model.train()
     optimizer = mup.MuAdamW(model.parameters(), lr=lr, weight_decay=0.01) if use_mup else torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=0.01)
     warmup_steps = 0 if ("DPI" in name) else 20
