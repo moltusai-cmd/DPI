@@ -1,7 +1,17 @@
 import torch
 import torch.nn as nn
 import math
-import mup
+try:
+    import mup
+except ImportError:
+    mup = None
+
+class MuReadoutFallback(nn.Linear):
+    def __init__(self, in_features, out_features, bias=True, **kwargs):
+        super().__init__(in_features, out_features, bias=bias)
+
+if mup is None:
+    mup = type('mup', (), {'MuReadout': MuReadoutFallback})
 from torch.utils.checkpoint import checkpoint
 
 def count_parameters(model):

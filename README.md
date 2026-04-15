@@ -62,6 +62,22 @@ DPI replaces random initialization with a **Sequential Bootstrapping pipeline** 
 | 500 | 7.7220 | 6.7130 | −1.01 |
 | 1,000 | 7.3840 | 6.1699 | −1.21 |
 
+#### 8-Test "Octo-Benchmark" (RTX 5080, 20M Scale)
+Comparative analysis of initialization vs. scheduler regimes (Fixed 1e-4 vs. Cosine+Warmup).
+
+| Initialization | Scheduler | Val Loss | Advantage | Rank (0.01) |
+|---|---|---|---|---|
+| Xavier Uniform | Cosine+Warmup | 5.5250 | 0.0000 | 83.31 |
+| Xavier Uniform | Fixed 1e-4 | 4.2647 | +1.2602 | 78.44 |
+| Xavier muP | Cosine+Warmup | 5.1958 | +0.3292 | 82.91 |
+| Xavier muP | Fixed 1e-4 | 4.2344 | +1.2905 | 83.18 |
+| **DPI v16.2** | **Cosine+Warmup** | **3.7712** | **+1.7538** | **82.35** |
+| **DPI v16.2** | **Fixed 1e-4** | **2.6447** | **+2.8803** | **80.30** |
+| MuDPI (DPI+muP) | Cosine+Warmup | 3.8399 | +1.6851 | 83.10 |
+| MuDPI (DPI+muP) | Fixed 1e-4 | 3.1179 | +2.4071 | 80.21 |
+
+**Key Finding**: DPI v16.2 performs best with a **Fixed Learning Rate (No Warmup)**, reaching a validation loss of **2.64**, representing a **2.88 point advantage** over the standard Xavier baseline.
+
 **Step efficiency to reach target loss:**
 
 | Target Loss | Xavier Steps | DPI Steps | Speedup |

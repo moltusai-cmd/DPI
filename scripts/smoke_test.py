@@ -44,10 +44,7 @@ def run_test():
         initialize_dpi(
             model, 
             dataloader, 
-            warp_zeta=1.1, 
-            spectral_gamma=0.25, 
-            morph_alpha=0.45, 
-            use_calibration=True
+            mode="v16.2"
         )
         print("--- DPI BOOTSTRAP COMPLETE ---")
         
