@@ -77,7 +77,7 @@ def setup_muon_optimizer(model, base_lr=1e-4):
     param_groups = [*adam_groups, muon_group]
     return SingleDeviceMuonWithAuxAdam(param_groups)
 
-def train_model(name, model, loader, val_loader, device, opt_type="SpectreMuon", total_steps=1000, lr=1e-4):
+def train_model(name, model, loader, val_loader, device, opt_type="SpectreMuon", total_steps=2000, lr=1e-4):
     model.train()
     if opt_type == "SpectreMuon":
         optimizer = SpectreMuon(model.parameters(), lr=lr, weight_decay=0.01, anchor_factor=0.5)
@@ -135,7 +135,7 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     vocab_size, seq_len = 16384, 128
     
-    # 20 Million tokens to ensure 1000 steps (32 * 128 = 4096 tokens/step -> ~4.1M tokens needed)
+    # 20 Million tokens to ensure 2000 steps (32 * 128 = 4096 tokens/step -> ~8.2M tokens needed)
     # plus the tokens consumed by initialize_dpi.
     # This prevents the model from seeing the same data multiple times (no epochs looping).
     train_dataset = RobustDataset(split="train", target_tokens=20_000_000)
@@ -146,7 +146,7 @@ def main():
     # 100M params model architecture
     cfg = dict(vocab_size=vocab_size, d_model=768, n_heads=12, d_mlp=3072, n_layers=12, max_len=seq_len, use_mup_attn=False, use_mup_readout=False)
     
-    print(f"⚔️ ULTIMATE DUEL 100M (1000 steps, Cosine LR 1e-e3): DPI+SpectreMuon vs DPI (Multiple versions)+Muon vs Xavier+Muon")
+    print(f"⚔️ ULTIMATE DUEL 100M (2000 steps, Cosine LR 1e-e3): DPI+SpectreMuon vs DPI (Multiple versions)+Muon vs Xavier+Muon")
     print(f"{'='*80}")
 
     lr = 1e-3
@@ -157,7 +157,7 @@ def main():
     torch.manual_seed(seed)
     m_dpi_dso = PID8Transformer(**cfg).to(device)
     initialize_dpi(m_dpi_dso, train_loader, mode="v17.0")
-    results["DPI_v17.0_SpectreMuon"] = train_model("DPI v17.0 + SpectreMuon", m_dpi_dso, train_loader, val_loader, device, opt_type="SpectreMuon", lr=lr, total_steps=1000)
+    results["DPI_v17.0_SpectreMuon"] = train_model("DPI v17.0 + SpectreMuon", m_dpi_dso, train_loader, val_loader, device, opt_type="SpectreMuon", lr=lr, total_steps=2000)
 
     # 2. DPI + Muon (Ablation sur les versions)
     dpi_versions = ["v14", "v15", "v16.2", "v16.3", "v17.0"]
@@ -171,7 +171,7 @@ def main():
             initialize_dpi_legacy(m_dpi_muon, train_loader, use_attention_arch=True)
         else:
             initialize_dpi(m_dpi_muon, train_loader, mode=v)
-        results[f"DPI_{v}_Muon"] = train_model(f"DPI {v} + Muon", m_dpi_muon, train_loader, val_loader, device, opt_type="Muon", lr=lr, total_steps=1000)
+        results[f"DPI_{v}_Muon"] = train_model(f"DPI {v} + Muon", m_dpi_muon, train_loader, val_loader, device, opt_type="Muon", lr=lr, total_steps=2000)
 
     # 3. Xavier + Muon
     print("\n🚀 Running Xavier + Muon...")
@@ -180,7 +180,7 @@ def main():
     for p in m_xavier_muon.parameters():
         if p.dim() > 1: nn.init.xavier_uniform_(p)
         else: nn.init.zeros_(p)
-    results["Xavier_Muon"] = train_model("Xavier+Muon", m_xavier_muon, train_loader, val_loader, device, opt_type="Muon", lr=lr, total_steps=1000)
+    results["Xavier_Muon"] = train_model("Xavier+Muon", m_xavier_muon, train_loader, val_loader, device, opt_type="Muon", lr=lr, total_steps=2000)
 
     print(f"\n{'='*60}")
     print(f"{'Configuration':<30} | {'Val Loss':<10}")
