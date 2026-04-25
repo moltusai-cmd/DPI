@@ -147,7 +147,10 @@ class PID8Transformer(nn.Module):
             TransformerBlock(d_model, n_heads, d_mlp, dropout, use_mup_attn=use_mup_attn, use_rmsnorm=use_rmsnorm, use_swiglu=use_swiglu) for _ in range(n_layers)
         ])
         self.ln_f = RMSNorm(d_model) if use_rmsnorm else nn.LayerNorm(d_model)
-        self.unembed = mup.MuReadout(d_model, vocab_size, bias=False)
+        if use_mup_readout:
+            self.unembed = mup.MuReadout(d_model, vocab_size, bias=False)
+        else:
+            self.unembed = nn.Linear(d_model, vocab_size, bias=False)
         self.gradient_checkpointing = False
 
     def forward(self, x):
